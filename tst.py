@@ -1,19 +1,43 @@
-import requests
+data =""".............
+...._........
+.._/A\_..._..
+./B\_/D\_/F\.
+.\_/C\_/E\_/.
+...\_/G\_/...
+.....\_/.....
+............."""
 
+data = list(data)
+data.reverse()
+data = ''.join(data)
+print(data , '\n')
+data = data.split('\n' )
 
-def numToStr(num = 0):
-    #Утилита для преобразования числа в строку номер , например число 1 или 2 будет преобразованно в '01' или '02' соответственно
-    string = ''
-    if len( str(num) ) == 1:
-        string = string + '0' + str(num)
-    else: string = str(num)
-    return string
+edit_list = []
+y = 0
+for h in data:
+    data[y] += '\n'
+    y = y + 1
+    x = 0
+    for w in h:
+        x = x + 1
+        if w.isalpha():
+            print(w , x , y)
+            edit_list.append( [w , x , y])
 
+def swap(data, my_x , my_y , sinbol ):
+    n = 0
+    y= 0
+    for h in data:
+        y = y + 1
+        x = 0
+        for w in h:
+            x = x + 1
+            if x ==  my_x and y == my_y:
+                return n
+            n += 1
 
-num = 1
-while True:
-    data = numToStr(num)
+print( swap(data , 7 , 3 , '_') )
 
-    r = requests.get(f'https://m2.akniga.club/b/63690/bUvZdqwKeBmPu59AJsisdg,,/{data}. Маруяма Куганэ - Паладин Святого Королевства. Часть 2.mp3' , stream=True)
-    print(f'{data}  :  {r.status_code}')
-    num += 1
+data = ''.join(data)
+

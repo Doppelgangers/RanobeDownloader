@@ -1,19 +1,42 @@
 import time
+
+import os
+from multiprocessing import Pool
+
+import pyfiglet
 import requests
 from bs4 import BeautifulSoup
-
 from mutagen.mp3 import MP3
 from selenium import webdriver
-import os
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 
 
-def getHTML(url):
-    #Получает html в котором сожержится audio
-    #Вход ссылка
-    #Выход html
+def getHTML(url , bg = True):
+    #Вход: ссылка на сайт
+    #Выход: html код страницы
     try:
-        driver = webdriver.Chrome()
+        options = webdriver.ChromeOptions()
+
+        prefs = {"profile.managed_default_content_settings.images": 2}
+        options.add_experimental_option("prefs", prefs)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+
+        options.headless = True
+
+        caps = DesiredCapabilities().CHROME
+        caps["pageLoadStrategy"] = "none"
+
+
+        driver = webdriver.Chrome( options=options)
         driver.get(url)
+
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'audio[src]'))
+        )
+
         html = driver.page_source
         return html
     except Exception as a:
@@ -21,7 +44,6 @@ def getHTML(url):
         return False
     finally:
         driver.close()
-
 
 def getSRC(html):
     #Парсит html контент в поисках ссылки на audio
@@ -33,9 +55,8 @@ def getSRC(html):
         try:
             print('LINK = '+ el[i]['src'] )
             return el[i]['src']
-        except:
+        except Exception as e:
             pass
-
 
 def getList(html):
     #Получает имена всех аудиокомпозиций и их отступы
@@ -48,8 +69,8 @@ def getList(html):
     item.pop(0)
     name.pop(0)
     for i in range(len(item)):
-        print(item[i]['data-pos'])
-        print( name[i].text )
+        # print(item[i]['data-pos'])
+        # print( name[i].text )
         bookList.append({
         'name':   name[i].text,
         'offset': item[i]['data-pos']
@@ -64,49 +85,68 @@ def numToStr(num = 0):
     else: string = str(num)
     return string
 
-def downloadAll(base_url):
-    #Загрузака всех аудио файлов с текущего сайта
-    #Вход , ссылка на афудио
-    #Выход , количество скаченных файлов
-    i = 0
-    error = 0
+
+def test_url(url):
+    #Функция проверяет работоспособность url и возвращает статус страницы
+    try:
+        data = requests.get(url, stream=True, timeout=2, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
+        status_code = data.status_code
+        return status_code
+    except Exception:
+        return 407
+
+
+def cheker(base_url):
+    valid_links = []
+    num = 1
     while True:
-        i = i + 1
-        url = base_url.replace(',,/01', ',,/' + numToStr(i))
-        try:
-            file = requests.get(url , stream=True)
-        except:
-            if error<10:
-                error = error + 1
-                print('Error connect ... ')
-                time.sleep(2)
-                print('Reconnect')
-                i = i - 1
-                continue
-                # file = requests.get(url , stream=True)
-            else:
-                print('Error , script is STOPed')
-                return
+        url = base_url.replace(',,/01', ',,/' + numToStr(num))
+        code = test_url(url)
 
-        if file.status_code != 200:
-            print("is_UNSET --> " + url)
-            return i - 1
+        match code:
+            case 200:
+                print("Link is valide : " , num)
+                valid_links.append([url , num])
+                num += 1
+            case 404:
+                return valid_links
+            case 407:
+                print('Reconnecting (407) . . .')
 
-        print("is_set --> " + url)
+            case _:
+                print(code)
 
-        print('Download')
+def download_one (data):
+    url , file_name = data
+    try:
+        file = requests.get(url , stream=True , timeout=3 , headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
+    except requests.exceptions.Timeout:
+        print("Error enter , reconect")
+        download_one(data)
+    except Exception as e:
+        print("exept " , e)
+        return False
+    print('Download' , url)
+    try:
+        ch = 0
+        with open(str(file_name) + '.mp3', 'wb') as f:
+            for chank in file.iter_content(chunk_size=1024 * 1024):
+                if chank:
+                    ch = ch + 1
+                    # print(ch)
+                    f.write(chank)
+        print("Downloaded: " + str(file_name) + '.mp3')
+    except:
+        print('Error download: ' + url)
 
-        try:
-            ch = 0
-            with open(str(i)+'.mp3', 'wb') as f:
-                for chank in file.iter_content(chunk_size=1024 * 1024):
-                    if chank:
-                        ch = ch + 1
-                        print(ch)
-                        f.write(chank)
-            print( "Downloaded: " + str(i))
-        except:
-            print ('Error download: ' + url)
+def multiprocessing_download_all(url_first_download_link):
+    links = cheker(url_first_download_link)
+    with Pool(processes=os.cpu_count()) as pool:
+        pool.map(download_one , links)
+
+    return len(links)
+
 
 def getDuration( file_name ):
     #Узнаёт длительность аудиокомпозиции по имении файла
@@ -132,7 +172,7 @@ def splitCMD(path_mp3split = 'C:\mp3splt' , command_list=[] ):
         file.write( 'cd '+ os.path.dirname(os.path.abspath(__file__)) +  ' \n'  )
         #Записываем команды из массива
         for i in range( int( len( command_list ) ) ):
-            print('--Writed split command '+ str(i+1) )
+            # print('--Writed split command '+ str(i+1) )
             # Создаём комманду для разделения
             file.write(command_list[i] + ' \n')
 
@@ -176,44 +216,29 @@ def cerate_command_split(array='' , name_dir = ""):
         if len(name_dir) > 1:
             command = command + ' -d ' + '"'+name_dir +'"'
         command_list.append(command)
-        print(command_list[i])
-    print('END create commcnd for mp3split')
+        # print(command_list[i])
+    dat = command_list[-1]
+    dat = dat.split('.mp3')
+    dat = dat[0].replace('mp3splt', '').strip()
+    dat = int(dat)
+    for i in range(dat):
+        num = i+1
+        command_list.append(f'del {num}.mp3')
+    command_list.append('del command.bat')
     return command_list
 
-def clear(max):
-    #Удаляет временные файлы
-    for i in range( int( max ) ):
-        try:
-            os.remove(f'{i+1}.mp3')
-            print(f'Delated {i+1}.mp3 ')
-        except:
-            print('ERROR DEL')
-    try:
-        os.remove('command.bat')
-    except:
-        print("error { remove('command.bat') }")
-
-
 def main():
+    print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
     url = input('Введите URL на аудиокнигу сайта akniga.org: ')
     dirSave = input('Введите название папки в которую будет сохранено всё: ')
     html = getHTML(url=url)
     downloadURL = getSRC(html)
-    numbers_files = downloadAll(downloadURL)
+    numbers_files = multiprocessing_download_all(downloadURL)
     print( 'Downlowded : ' +  str(numbers_files) + ' files')
     listFiles = getList(html)
-
     commands = cerate_command_split(listFiles , name_dir=dirSave)
     splitCMD(path_mp3split='C:\mp3splt' , command_list= commands)
-
-    d=input("Удалить файл  Y/N: ")
-    if d =='y' or d=='Y':
-        clear(numbers_files)
-    elif d== 'n' or d=='N':
-        print('End')
-
-
-
+    print(pyfiglet.figlet_format("E N D", font='doom'))
 
 
 if __name__ == '__main__':
