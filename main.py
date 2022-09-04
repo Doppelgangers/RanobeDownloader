@@ -286,6 +286,7 @@ def cerate_command_split(array: list, name_dir: str):
     return command_list
 
 def checking_dependencies():
+    # Проверка существования mp3splt====================================================================================
     global CONFIG
     if not os.path.exists( os.path.join( CONFIG["MP3SPLT_PATH"] , 'mp3splt.exe' ) ):
         while True:
@@ -312,10 +313,32 @@ def checking_dependencies():
 
             if os.path.exists( os.path.join( CONFIG["MP3SPLT_PATH"] , 'mp3splt.exe' ) ):
                 break
+#=======================================================================================================================
+
+# def checking_free_dir():
+#     os.path.exists(  )
+
+def settings_menu():
+    global CONFIG
+    print( '\n',pyfiglet.figlet_format("S e t t i n g s", font='doom') )
+    print("="*54)
+    while True:
+        print(f"""
+Путь к mp3splt === {CONFIG['MP3SPLT_PATH']} 
+Путь сохранения папкок с аудиокнигой === { '[=EMPTY=]' if CONFIG['SAVE_TO'] == '' else  CONFIG['SAVE_TO'] } 
+      
+""")
+        input("Выберете действие: ")
+
 
 def main():
+    # CONFIG = ConfigManager.get_configs()
+    checking_dependencies()
     print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
-    url = input('Введите URL на аудиокнигу сайта akniga.org: ')
+    url = input('Что бы открыть настройки введите: settings\n\nВведите URL на аудиокнигу сайта akniga.org: ')
+    if url.strip() == "settings":
+        settings_menu()
+        main()
     dirSave = input('Введите название папки в которую будет сохранено всё: ')
     html = getHTML(url=url)
     downloadURL = getSRC(html)
@@ -330,6 +353,6 @@ def main():
 
 if __name__ == '__main__':
     CONFIG = ConfigManager.get_configs()
-    checking_dependencies()
+    settings_menu()
 
     # main()
