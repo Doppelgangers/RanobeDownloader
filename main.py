@@ -1,28 +1,61 @@
-import datetime
-import time
-
 import os
+import sys
+import zipfile
 from multiprocessing import Pool
 
-import pyfiglet
+from settings import ConfigManager
+
 import requests
 from bs4 import BeautifulSoup
-from mutagen.mp3 import MP3
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
+from mutagen.mp3 import MP3
+import pyfiglet
 
 
+
+def download_chrom_driver():
+
+    chrome_info_file = os.path.expandvars(r"%localappdata%/Google/Chrome/User Data/Last Version")
+
+    with open(chrome_info_file, 'r') as f:
+        vers_chrome = f.readline()
+
+    vers_chrome = vers_chrome.split('.')[:-1]
+    vers_chrome = '.'.join(vers_chrome)
+
+    vers = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{vers_chrome}').text
+
+    try:
+        file = requests.get(f"https://chromedriver.storage.googleapis.com/{vers}/chromedriver_win32.zip", stream=True, timeout=3)
+
+        with open('chromedriver.zip' , "wb" ) as f:
+            for chank in file.iter_content(chunk_size=1024 * 1024):
+                if chank:
+                    f.write(chank)
+    except Exception as e:
+        print(f"{e}\n\n\n\n\nВо время загрузки chromedriver произошла ошибка\nПопробуйте загрузить chromedriver для googlehrome в ручную.")
+        raise Exception('Error download chromedriwer for your chrome browser.')
+#     ============================================================================
+#     Распаковка архива с драйвером
+    with zipfile.ZipFile('chromedriver.zip', 'r') as zip_ref:
+        zip_ref.extractall()
+    os.remove('chromedriver.zip')
+    print(f"Downloaded chromedriver: v{vers}")
+    return True
 def getHTML(url, bg=True):
     # Вход: ссылка на сайт
+    # Условие ожидания: ждём 10 секунд ссылку на mp3 файл
     # Выход: html код страницы
     try:
         options = webdriver.ChromeOptions()
 
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
+
         options.add_argument("--disable-blink-features=AutomationControlled")
 
         options.headless = True
@@ -31,6 +64,7 @@ def getHTML(url, bg=True):
         caps["pageLoadStrategy"] = "none"
 
         driver = webdriver.Chrome(options=options)
+
         driver.get(url)
 
         WebDriverWait(driver, 10).until(
@@ -39,9 +73,18 @@ def getHTML(url, bg=True):
 
         html = driver.page_source
         return html
-    except Exception as a:
-        print(a)
-        return False
+
+    except Exception as e:
+        raise Exception(f"""
+        {e}\n\n\n
+        Не удалось получить доступ к HTML сайта.
+        
+        Возможные причины ошибки:
+        • Нет подключения к интернуту
+        • Не установлен google chrome
+        • Установлена неправильная версия chromedriver.exe
+        """)
+
     finally:
         driver.close()
 
@@ -80,7 +123,7 @@ def getList(html):
     return bookList
 
 
-def numToStr(num=0):
+def numToStr(num: int):
     # Утилита для преобразования числа в строку номер , например число 1 или 2 будет преобразованно в '01' или '02' соответственно
     string = ''
     if len(str(num)) == 1:
@@ -155,9 +198,9 @@ def multiprocessing_download_all(url_first_download_link):
     return len(links)
 
 
-def getDuration(file_name):
+def getDuration(file_name = '1.mp3'):
     # Узнаёт длительность аудиокомпозиции по имении файла
-    f = MP3('1.mp3')
+    f = MP3(file_name)
     secs = round(f.info.length)
     return secs
 
@@ -169,28 +212,25 @@ def converterTimeMMSS(sec):
     return time
 
 
-def splitCMD(path_mp3split='C:\mp3splt', command_list=[]):
+def splitCMD(path_mp3split: str = 'C:\mp3splt' , command_list: list = []):
     # Создание и запуск утилиты на разрезку файлов
     with open(r"command.bat", "w") as file:
         # Включаем кодировку с поддержкой русского языка
         file.write('chcp 1251 >nul \n')
-        # Переходем к сплитеру
-        file.write('cd ' + path_mp3split + ' & .\mp3splt.exe' + ' \n')
         # Переходим к месту расположению этого скрпипта
         file.write('cd ' + os.path.dirname(os.path.abspath(__file__)) + ' \n')
         # Записываем команды из массива
         for i in range(int(len(command_list))):
-            # print('--Writed split command '+ str(i+1) )
-            # Создаём комманду для разделения
+            # Записываем комманды для утилиты mp3splt
             file.write(command_list[i] + ' \n')
 
-    # Переходим вы текущюю деректорию
+    # Переходим в текущюю деректорию
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     # Запускаем созданный скрипт
     os.startfile("command.bat")
 
 
-def cerate_command_split(array='', name_dir=""):
+def cerate_command_split(array: list, name_dir: str):
     # Создацние списка команд для утилиты разделения
     # Принимает name_dir -> если указанно то сохраняет в папку с указанным именем 1
     # Принимает array , список имён и отступов
@@ -220,7 +260,7 @@ def cerate_command_split(array='', name_dir=""):
         time_end = converterTimeMMSS(end)
 
         #Указываем входной файл и временые отрезки
-        command = f"mp3splt {str(this_file)}.mp3 {str(time_start)} {str(time_end)}"
+        command = f"{ os.path.join(CONFIG['MP3SPLT_PATH'] , 'mp3splt') }  {str(this_file)}.mp3 {str(time_start)} {str(time_end)}"
 
         # Имя файла
         command = command + f" -o @t=\"{array[i]['name']}\""
@@ -228,24 +268,50 @@ def cerate_command_split(array='', name_dir=""):
         # Название композиции
         command = command + f" -g [@t=\"{array[i]['name']}\"] "
 
-        if name_dir:
-            command = command + ' -d ' + '"' + name_dir + '"'
-        else:
-            command = command + ' -d ' + '"' + datetime.datetime.now() + '"'
+        command = command + ' -d ' + '"' + name_dir + '"'
+
         command_list.append(command)
         # print(command_list[i])
 
-    dat = command_list[-1]
-    dat = dat.split('.mp3')
-    dat = dat[0].replace('mp3splt', '').strip()
-    dat = int(dat)
+    #Исходя из последней команды узнаём номер последнего mp3 файла и удаляем все остальные
+    # dat = command_list[-1]
+    # dat = dat.split('.mp3')
+    # dat = dat[0].replace('mp3splt', '').strip()
+    # dat = int(dat)
+    dat = int(command_list[-1].split('.mp3')[0].replace('mp3splt', '').strip())
     for i in range(dat):
         num = i + 1
         command_list.append(f'del {num}.mp3')
     command_list.append('del command.bat')
-
     return command_list
 
+def checking_dependencies():
+    global CONFIG
+    if not os.path.exists( os.path.join( CONFIG["MP3SPLT_PATH"] , 'mp3splt.exe' ) ):
+        while True:
+            print(
+"""
+= = = E R R O R = = =
+Не найден путь к утилите mp3slpt, если утилита установлена укажите верный путь:
+1) Установить mp3.splt
+2) Указать путь
+3) Выход 
+""")
+            key = input("Выберете действие: ")
+
+            match key:
+                case "1":
+                    os.startfile(os.path.join(os.getcwd(),'mp3splt_2.6.2_i386.exe'))
+                case "2":
+                    ConfigManager.edit_config("MP3SPLT_PATH" , input("\n\n\nВведите путь к mp3slpt \nПример: D:\programs\mp3splt\n\nПуть: ") )
+                    CONFIG = ConfigManager.get_configs()
+                case "3":
+                    exit()
+                case _:
+                    print("Такого действия нет.")
+
+            if os.path.exists( os.path.join( CONFIG["MP3SPLT_PATH"] , 'mp3splt.exe' ) ):
+                break
 
 def main():
     print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
@@ -261,5 +327,9 @@ def main():
     print(pyfiglet.figlet_format("E N D", font='doom'))
 
 
+
 if __name__ == '__main__':
-    main()
+    CONFIG = ConfigManager.get_configs()
+    checking_dependencies()
+
+    # main()
