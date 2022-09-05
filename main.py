@@ -315,27 +315,61 @@ def checking_dependencies():
                 break
 #=======================================================================================================================
 
-# def checking_free_dir():
-#     os.path.exists(  )
+class Validator:
+    @classmethod
+    def mp3splt(cls, value):
+        if os.path.exists( os.path.join( value , 'mp3splt.exe' ) ):
+            return True
+        else:
+            print(f"По пути {value} не был обнаружен файл mp3.splt.exe")
+            return False
+    @classmethod
+    def save_to(cls , value):
+        if os.path.exists( value ):
+            return True
+        else:
+            print(f"По пути {value} папки не существует.")
+            return False
+def edit_config(key , value , validator):
+    global CONFIG
 
+    while True:
+        if value == "stop":
+            return
+
+        if validator(value) :
+            ConfigManager.edit_config(key , value)
+            CONFIG = ConfigManager.get_configs()
+            return
+        value = input("\nВведите корректный путь или введите stop, что бы выйти\nВвод: ")
 def settings_menu():
     global CONFIG
     print( '\n',pyfiglet.figlet_format("S e t t i n g s", font='doom') )
-    print("="*54)
+
     while True:
         print(f"""
-Путь к mp3splt === {CONFIG['MP3SPLT_PATH']} 
-Путь сохранения папкок с аудиокнигой === { '[=EMPTY=]' if CONFIG['SAVE_TO'] == '' else  CONFIG['SAVE_TO'] } 
-      
+============================================= Н А С Т Р О Й К И ========================================================
+1) Изменить путь к mp3splt === { '[=EMPTY=]' if ( (path:=CONFIG['MP3SPLT_PATH']) == '') else path } 
+2) Изменить путь сохранения папкок с аудиокнигой === { '[=EMPTY=]' if ( (path:=CONFIG['SAVE_TO']) == '')  else  path } 
+3) Вернуться
+========================================================================================================================
 """)
-        input("Выберете действие: ")
+        match input("Выберете действие: "):
+            case '1':
+                edit_config( 'MP3SPLT_PATH' , input("\nВведите путь к mp3splt.exe\nПример: D:\programs\mp3splt\n(Для отмены введеите: stop)\n\nВвод:  "), Validator.mp3splt)
+            case '2':
+                edit_config( 'SAVE_TO' , '\nУкажите куда сохранять папки с аудиокнигами\nПример: C:/Users/root/Desktop\n(Для отмены введеите: stop)\n\nВвод: ', Validator.save_to)
+            case '3':
+                return
+            case _:
+                print("Такой команды нет")
 
 
 def main():
-    # CONFIG = ConfigManager.get_configs()
     checking_dependencies()
     print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
-    url = input('Что бы открыть настройки введите: settings\n\nВведите URL на аудиокнигу сайта akniga.org: ')
+    print('Что бы открыть настройки введите: settings\n')
+    url = input('Введите URL на аудиокнигу сайта akniga.org: ')
     if url.strip() == "settings":
         settings_menu()
         main()
@@ -353,6 +387,4 @@ def main():
 
 if __name__ == '__main__':
     CONFIG = ConfigManager.get_configs()
-    settings_menu()
-
-    # main()
+    main()
