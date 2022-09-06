@@ -1,24 +1,23 @@
 import os
 import time
-
 import zipfile
 from multiprocessing import Pool
 
-import mutagen
 
 from settings import ConfigManager
 
-import requests
-from bs4 import BeautifulSoup
-import selenium
-from selenium import webdriver
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from mutagen.mp3 import MP3
+
+import mutagen
 import pyfiglet
+import requests
+from mutagen.mp3 import MP3
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common import exceptions as selenium_exceptions
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 
 def download_chrom_driver():
@@ -50,10 +49,16 @@ def download_chrom_driver():
     try:
         file = requests.get(f"https://chromedriver.storage.googleapis.com/{vers}/chromedriver_win32.zip", stream=True, timeout=3)
 
+        if file.status_code == 404:
+            print (f"Версии chromedriver под {vers_chrome} не найдено\nПопробуйте загрузить chromedriver для google chrome вручную.")
+            return False
+
+
         with open('chromedriver.zip', "wb" ) as f:
             for chank in file.iter_content(chunk_size=1024 * 1024):
                 if chank:
                     f.write(chank)
+
     except Exception as e:
         print(f"{e}\n\n\n\n\nВо время загрузки chromedriver произошла ошибка\nПопробуйте загрузить chromedriver для google chrome вручную.")
         raise Exception('Error download chromedriwer for your chrome browser.')
@@ -106,10 +111,15 @@ def getHTML(url, bg=True):
 ===================================================
         """)
         exit()
-
-    except selenium_exceptions.WebDriverException:
-        download_chrom_driver()
-
+    except selenium_exceptions.SessionNotCreatedException as e:
+        if ('This version of ChromeDriver' in e.args[0]):
+            download_chrom_driver()
+            getHTML(url=url)
+    except selenium_exceptions.WebDriverException as e:
+        if (error := e.args[0]) == 'unknown error: cannot find Chrome binary':
+            print("Google Chrome не найдён в пути по умолчанию\nУстановите google crome.")
+            exit()
+        raise Exception(e)
 
 
 
@@ -336,6 +346,9 @@ def checking_dependencies():
     if not os.path.exists(CONFIG["SAVE_TO"]):
         ConfigManager.edit_config("SAVE_TO", '')
 
+    if not os.path.exists( os.path.join( os.getcwd() , 'chromedriver.exe' ) ):
+        download_chrom_driver()
+
 class Validator:
     @classmethod
     def mp3splt(cls, value):
@@ -427,5 +440,5 @@ def main():
 if __name__ == '__main__':
     CONFIG = ConfigManager.get_configs()
     # main()
-    download_chrom_driver()
+    checking_dependencies()
 
