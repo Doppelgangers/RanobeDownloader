@@ -1,7 +1,9 @@
 import os
-import sys
+
 import zipfile
 from multiprocessing import Pool
+
+import mutagen
 
 from settings import ConfigManager
 
@@ -99,9 +101,12 @@ def getSRC(html):
         try:
             print('LINK = ' + el[i]['src'])
             return el[i]['src']
-        except Exception as e:
+        except KeyError:
             pass
 
+def getTitle(html):
+    soup = BeautifulSoup(html, "lxml")
+    return soup.find('h1', class_= 'caption__article-main').text
 
 def getList(html):
     # Получает имена всех аудиокомпозиций и их отступы
@@ -167,27 +172,26 @@ def cheker(base_url):
 
 def download_one(data):
     url, file_name = data
+
     try:
         file = requests.get(url, stream=True, timeout=3, headers={
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
     except requests.exceptions.Timeout:
         print("Error enter , reconect")
         download_one(data)
-    except Exception as e:
-        print("exept ", e)
-        return False
+
     print('Download', url)
-    try:
-        ch = 0
-        with open(str(file_name) + '.mp3', 'wb') as f:
-            for chank in file.iter_content(chunk_size=1024 * 1024):
-                if chank:
-                    ch = ch + 1
-                    # print(ch)
-                    f.write(chank)
-        print("Downloaded: " + str(file_name) + '.mp3')
-    except:
-        print('Error download: ' + url)
+
+    ch = 0
+    with open(str(file_name) + '.mp3', 'wb') as f:
+        for chank in file.iter_content(chunk_size=1024 * 1024):
+            if chank:
+                ch = ch + 1
+                # print(ch)
+                f.write(chank)
+
+    print("Downloaded: " + str(file_name) + '.mp3')
+
 
 
 def multiprocessing_download_all(url_first_download_link):
@@ -211,8 +215,7 @@ def converterTimeMMSS(sec):
     time = time + str(sec // 60) + '.' + str(sec % 60)
     return time
 
-
-def splitCMD(path_mp3split: str = 'C:\mp3splt' , command_list: list = []):
+def splitCMD( command_list: list ):
     # Создание и запуск утилиты на разрезку файлов
     with open(r"command.bat", "w") as file:
         # Включаем кодировку с поддержкой русского языка
@@ -230,9 +233,8 @@ def splitCMD(path_mp3split: str = 'C:\mp3splt' , command_list: list = []):
     os.startfile("command.bat")
 
 
-def cerate_command_split(array: list, name_dir: str):
+def cerate_command_split(array: list, folder_name: str, number_downloaded_file: int , path_mp3split: str) -> list:
     # Создацние списка команд для утилиты разделения
-    # Принимает name_dir -> если указанно то сохраняет в папку с указанным именем 1
     # Принимает array , список имён и отступов
     # Результатом работы скрипта является список команд для mp3split
     offsets = 0
@@ -240,46 +242,40 @@ def cerate_command_split(array: list, name_dir: str):
     max_duratin = getDuration('1.mp3')
 
     command_list = []
-    for i in range(int(len(array))):
+    for i in range( len(array) ):
 
-        if (int(array[i]['offset']) - offsets) >= max_duratin:
-            this_file = this_file + 1
+        if ( int(array[i]['offset']) - offsets) >= max_duratin:
+            this_file += 1
             offsets = int(array[i]['offset'])
             try:
                 max_duratin = getDuration(str(this_file) + '.mp3')
-            except:
-                print('End')
+            except mutagen.MutagenError:
                 return
 
         start = int(array[i]['offset']) - offsets
+
         try:
             end = int(array[i + 1]['offset']) - offsets
-        except:
+        except IndexError:
             end = max_duratin
         time_start = converterTimeMMSS(start)
         time_end = converterTimeMMSS(end)
 
         #Указываем входной файл и временые отрезки
-        command = f"{ os.path.join(CONFIG['MP3SPLT_PATH'] , 'mp3splt') }  {str(this_file)}.mp3 {str(time_start)} {str(time_end)}"
+        command = f"{os.path.join(path_mp3split , 'mp3splt')}  {str(this_file)}.mp3 {str(time_start)} {str(time_end)}"
 
         # Имя файла
-        command = command + f" -o @t=\"{array[i]['name']}\""
+        command += f""" -o @t="{array[i]['name']}" """
 
         # Название композиции
-        command = command + f" -g [@t=\"{array[i]['name']}\"] "
+        command += f""" -g [@t="{array[i]['name']}"] """
 
-        command = command + ' -d ' + '"' + name_dir + '"'
+        root_folder = CONFIG['SAVE_TO']
+        command += f""" -d "{os.path.join( root_folder, folder_name)}" """
 
         command_list.append(command)
-        # print(command_list[i])
 
-    #Исходя из последней команды узнаём номер последнего mp3 файла и удаляем все остальные
-    # dat = command_list[-1]
-    # dat = dat.split('.mp3')
-    # dat = dat[0].replace('mp3splt', '').strip()
-    # dat = int(dat)
-    dat = int(command_list[-1].split('.mp3')[0].replace('mp3splt', '').strip())
-    for i in range(dat):
+    for i in range( number_downloaded_file ):
         num = i + 1
         command_list.append(f'del {num}.mp3')
     command_list.append('del command.bat')
@@ -288,13 +284,13 @@ def cerate_command_split(array: list, name_dir: str):
 def checking_dependencies():
     # Проверка существования mp3splt====================================================================================
     global CONFIG
-    if not os.path.exists( os.path.join( CONFIG["MP3SPLT_PATH"] , 'mp3splt.exe' ) ):
+    if not os.path.exists(os.path.join(CONFIG["MP3SPLT_PATH"], 'mp3splt.exe')):
         while True:
             print(
 """
 = = = E R R O R = = =
 Не найден путь к утилите mp3slpt, если утилита установлена укажите верный путь:
-1) Установить mp3.splt
+1) Использовать mp3splt по умолчанию
 2) Указать путь
 3) Выход 
 """)
@@ -302,7 +298,8 @@ def checking_dependencies():
 
             match key:
                 case "1":
-                    os.startfile(os.path.join(os.getcwd(),'mp3splt_2.6.2_i386.exe'))
+                    print('Выбран mp3splt по умолчанию')
+                    ConfigManager.edit_config("MP3SPLT_PATH", 'mp3splt')
                 case "2":
                     ConfigManager.edit_config("MP3SPLT_PATH" , input("\n\n\nВведите путь к mp3slpt \nПример: D:\programs\mp3splt\n\nПуть: ") )
                     CONFIG = ConfigManager.get_configs()
@@ -314,6 +311,8 @@ def checking_dependencies():
             if os.path.exists( os.path.join( CONFIG["MP3SPLT_PATH"] , 'mp3splt.exe' ) ):
                 break
 #=======================================================================================================================
+    if not os.path.exists(CONFIG["SAVE_TO"]):
+        ConfigManager.edit_config("SAVE_TO", '')
 
 class Validator:
     @classmethod
@@ -366,21 +365,38 @@ def settings_menu():
 
 
 def main():
+    global CONFIG
     checking_dependencies()
     print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
     print('Что бы открыть настройки введите: settings\n')
+
     url = input('Введите URL на аудиокнигу сайта akniga.org: ')
+
     if url.strip() == "settings":
         settings_menu()
         main()
+
     dirSave = input('Введите название папки в которую будет сохранено всё: ')
+
     html = getHTML(url=url)
+
     downloadURL = getSRC(html)
+    title = getTitle(html)
+
+    if dirSave == "0":
+        dirSave = title
+
     numbers_files = multiprocessing_download_all(downloadURL)
+
+
     print('Downlowded : ' + str(numbers_files) + ' files')
+
     listFiles = getList(html)
-    commands = cerate_command_split(listFiles, name_dir=dirSave)
-    splitCMD(path_mp3split=r"C:\utils\mp3splt", command_list=commands)
+    os.path.join(CONFIG['MP3SPLT_PATH'], 'mp3splt')
+    commands = cerate_command_split(array=listFiles, folder_name=dirSave, number_downloaded_file=numbers_files, path_mp3split=CONFIG['MP3SPLT_PATH'])
+
+    splitCMD(command_list=commands)
+
     print(pyfiglet.figlet_format("E N D", font='doom'))
 
 
@@ -388,3 +404,6 @@ def main():
 if __name__ == '__main__':
     CONFIG = ConfigManager.get_configs()
     main()
+
+
+

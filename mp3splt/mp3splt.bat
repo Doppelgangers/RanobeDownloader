@@ -1,0 +1,1 @@
+cmd /K "cd D:\programs\mp3splt & .\mp3splt.exe"
