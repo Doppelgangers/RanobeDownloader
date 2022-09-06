@@ -1,4 +1,5 @@
 import os
+import time
 
 import zipfile
 from multiprocessing import Pool
@@ -9,6 +10,7 @@ from settings import ConfigManager
 
 import requests
 from bs4 import BeautifulSoup
+import selenium
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,30 +18,44 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from mutagen.mp3 import MP3
 import pyfiglet
-
+from selenium.common import exceptions as selenium_exceptions
 
 
 def download_chrom_driver():
 
+    if os.path.exists( os.path.join(os.getcwd(), "chromedriver.exe")):
+        os.remove('chromedriver.exe')
+        time.sleep(0.5)
+
     chrome_info_file = os.path.expandvars(r"%localappdata%/Google/Chrome/User Data/Last Version")
 
-    with open(chrome_info_file, 'r') as f:
-        vers_chrome = f.readline()
-
-    vers_chrome = vers_chrome.split('.')[:-1]
-    vers_chrome = '.'.join(vers_chrome)
+    if os.path.exists(chrome_info_file):
+        with open(chrome_info_file, 'r') as f:
+            vers_chrome = f.readline()
+            vers_chrome = vers_chrome.split('.')[:-1]
+            vers_chrome = '.'.join(vers_chrome)
+    else:
+        print("""
+        Не удалось определить версию вашего браузера google chrome. 
+        Если у все нет google chrome то его необходимо установить. 
+        
+        Введите версию ваешго google chrome вручную.
+        Пример: 105.0.5195.54
+        
+        """)
+        vers_chrome = input("Ваша версия: ").strip()
 
     vers = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{vers_chrome}').text
 
     try:
         file = requests.get(f"https://chromedriver.storage.googleapis.com/{vers}/chromedriver_win32.zip", stream=True, timeout=3)
 
-        with open('chromedriver.zip' , "wb" ) as f:
+        with open('chromedriver.zip', "wb" ) as f:
             for chank in file.iter_content(chunk_size=1024 * 1024):
                 if chank:
                     f.write(chank)
     except Exception as e:
-        print(f"{e}\n\n\n\n\nВо время загрузки chromedriver произошла ошибка\nПопробуйте загрузить chromedriver для googlehrome в ручную.")
+        print(f"{e}\n\n\n\n\nВо время загрузки chromedriver произошла ошибка\nПопробуйте загрузить chromedriver для google chrome вручную.")
         raise Exception('Error download chromedriwer for your chrome browser.')
 #     ============================================================================
 #     Распаковка архива с драйвером
@@ -66,7 +82,6 @@ def getHTML(url, bg=True):
         caps["pageLoadStrategy"] = "none"
 
         driver = webdriver.Chrome(options=options)
-
         driver.get(url)
 
         WebDriverWait(driver, 10).until(
@@ -74,21 +89,28 @@ def getHTML(url, bg=True):
         )
 
         html = driver.page_source
+        driver.close()
         return html
 
-    except Exception as e:
-        raise Exception(f"""
-        {e}\n\n\n
-        Не удалось получить доступ к HTML сайта.
-        
-        Возможные причины ошибки:
-        • Нет подключения к интернуту
-        • Не установлен google chrome
-        • Установлена неправильная версия chromedriver.exe
-        """)
+    except selenium_exceptions.TimeoutException:
+        print(f"""
+===================================================
 
-    finally:
-        driver.close()
+Не удалось получить доступ к сайту.
+
+Возможные причины ошибки:
+    • Нет подключения к интернуту/сайт не доступен
+    • Слишком частые запросы к сайту
+    • Неверный url
+    
+===================================================
+        """)
+        exit()
+
+    except selenium_exceptions.WebDriverException:
+        download_chrom_driver()
+
+
 
 
 def getSRC(html):
@@ -364,6 +386,7 @@ def settings_menu():
                 print("Такой команды нет")
 
 
+
 def main():
     global CONFIG
     checking_dependencies()
@@ -403,7 +426,6 @@ def main():
 
 if __name__ == '__main__':
     CONFIG = ConfigManager.get_configs()
-    main()
-
-
+    # main()
+    download_chrom_driver()
 
