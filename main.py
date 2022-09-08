@@ -20,85 +20,114 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 
-def download_chrom_driver():
+class WebDriver_Manager:
 
-    if os.path.exists( os.path.join(os.getcwd(), "chromedriver.exe")):
-        os.remove('chromedriver.exe')
-        time.sleep(0.5)
+    def download_chrome_driver(self):
 
-    chrome_info_file = os.path.expandvars(r"%localappdata%/Google/Chrome/User Data/Last Version")
+        if os.path.exists(os.path.join(os.getcwd(), "chromedriver.exe")):
+            os.remove('chromedriver.exe')
+            time.sleep(0.5)
 
-    if os.path.exists(chrome_info_file):
-        with open(chrome_info_file, 'r') as f:
-            vers_chrome = f.readline()
-            vers_chrome = vers_chrome.split('.')[:-1]
-            vers_chrome = '.'.join(vers_chrome)
-    else:
-        print("""
-        Не удалось определить версию вашего браузера google chrome. 
-        Если у все нет google chrome то его необходимо установить. 
-        
-        Введите версию ваешго google chrome вручную.
-        Пример: 105.0.5195.54
-        
-        """)
-        vers_chrome = input("Ваша версия: ").strip()
+        chrome_info_file = os.path.expandvars(r"%localappdata%/Google/Chrome/User Data/Last Version")
 
-    vers = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{vers_chrome}').text
+        if not os.path.exists(chrome_info_file):
+            with open(chrome_info_file, 'r') as f:
+                vers_chrome = f.readline()
 
-    try:
-        file = requests.get(f"https://chromedriver.storage.googleapis.com/{vers}/chromedriver_win32.zip", stream=True, timeout=3)
+        else:
+            print("""
+            Не удалось определить версию вашего браузера google chrome. 
+            Если у все нет google chrome то его необходимо установить. 
 
-        if file.status_code == 404:
-            print (f"Версии chromedriver под {vers_chrome} не найдено\nПопробуйте загрузить chromedriver для google chrome вручную.")
+            Введите версию ваешго google chrome вручную.
+            Пример: 105.0.5195.54
+
+            """)
+            vers_chrome = input("Ваша версия: ").strip()
+
+        if not "." in vers_chrome:
+            print(f"Версия {vers_chrome} указанна не корректно")
             return False
 
+        vers_chrome = vers_chrome.split('.')[:-1]
+        vers_chrome = '.'.join(vers_chrome)
 
-        with open('chromedriver.zip', "wb" ) as f:
+        vers = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{vers_chrome}')
+        if (errorcode := vers.status_code) == 404:
+            print(
+                f"Error: {errorcode}\nТакой версии браузера не найдено\nВведите версию корректно или скачайте webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")
+            return False
+
+        file = requests.get(f"https://chromedriver.storage.googleapis.com/{vers}/chromedriver_win32.zip", stream=True,
+                            timeout=3)
+
+        if (errorcode := file.status_code) == 404:
+            print(
+                f"Error: {errorcode}\nВерсии chromedriver {vers_chrome} не найдено\nПопробуйте загрузить webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")
+            return False
+
+        # ===Загрузка=архива=с=драйвером============================================================================
+        with open('chromedriver.zip', "wb") as f:
             for chank in file.iter_content(chunk_size=1024 * 1024):
                 if chank:
                     f.write(chank)
 
-    except Exception as e:
-        print(f"{e}\n\n\n\n\nВо время загрузки chromedriver произошла ошибка\nПопробуйте загрузить chromedriver для google chrome вручную.")
-        raise Exception('Error download chromedriwer for your chrome browser.')
-#     ============================================================================
-#     Распаковка архива с драйвером
-    with zipfile.ZipFile('chromedriver.zip', 'r') as zip_ref:
-        zip_ref.extractall()
-    os.remove('chromedriver.zip')
-    print(f"Downloaded chromedriver: v{vers}")
-    return True
-def getHTML(url, bg=True):
-    # Вход: ссылка на сайт
-    # Условие ожидания: ждём 10 секунд ссылку на mp3 файл
-    # Выход: html код страницы
-    try:
+        # ===Распаковка=архива=с=драйвером============================================================================
+        with zipfile.ZipFile('chromedriver.zip', 'r') as zip_ref:
+            zip_ref.extractall()
+
+        os.remove('chromedriver.zip')
+        print(f"Downloaded chromedriver: v{vers}")
+        return True
+
+
+
+
+
+class Browser:
+    options = None
+
+    def __init__(self , executable_path_chromedriwer = 'chromedriver.exe' ):
+        self.options = self.create_browser_options()
+
+    def create_browser_options(self, background_mode: bool = True , hide_images: bool = True, skip_wait_load_page: bool = True) -> webdriver.ChromeOptions:
         options = webdriver.ChromeOptions()
-
-        prefs = {"profile.managed_default_content_settings.images": 2}
-        options.add_experimental_option("prefs", prefs)
-
         options.add_argument("--disable-blink-features=AutomationControlled")
+        if hide_images:
+            prefs = {"profile.managed_default_content_settings.images": 2}
+            options.add_experimental_option("prefs", prefs)
 
-        options.headless = True
+        if background_mode:
+            options.headless = True
 
-        caps = DesiredCapabilities().CHROME
-        caps["pageLoadStrategy"] = "none"
+        if skip_wait_load_page:
+            caps = DesiredCapabilities().CHROME
+            caps["pageLoadStrategy"] = "none"
+        return options
 
-        driver = webdriver.Chrome(options=options)
-        driver.get(url)
+def get_akniga(self, url: str):
+        try:
+            driver = webdriver.Chrome( options = self.options )
 
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'audio[src]'))
-        )
+        except selenium_exceptions.SessionNotCreatedException as e:
+            if ('This version of ChromeDriver' in e.args[0]):
+                print(e.args[0] , "Обновите ChromeDriver в  настройках")
+                exit()
 
-        html = driver.page_source
-        driver.close()
-        return html
+        except selenium_exceptions.WebDriverException as e:
+            if (error := e.args[0]) == 'unknown error: cannot find Chrome binary':
+                print("Google Chrome не найдён в пути по умолчанию\nУстановите google crome.")
+                exit()
 
-    except selenium_exceptions.TimeoutException:
-        print(f"""
+        except Exception as e:
+            print("Произошла ошибка\n\n" , e.args[0])
+            exit()
+
+        try:
+            driver.get(url)
+            WebDriverWait(driver, 10).until(    EC.presence_of_element_located((By.CSS_SELECTOR, 'audio[src]'))   )
+        except selenium_exceptions.TimeoutException:
+            print(f"""
 ===================================================
 
 Не удалось получить доступ к сайту.
@@ -107,67 +136,57 @@ def getHTML(url, bg=True):
     • Нет подключения к интернуту/сайт не доступен
     • Слишком частые запросы к сайту
     • Неверный url
-    
+
 ===================================================
         """)
-        exit()
-    except selenium_exceptions.SessionNotCreatedException as e:
-        if ('This version of ChromeDriver' in e.args[0]):
-            download_chrom_driver()
-            getHTML(url=url)
-    except selenium_exceptions.WebDriverException as e:
-        if (error := e.args[0]) == 'unknown error: cannot find Chrome binary':
-            print("Google Chrome не найдён в пути по умолчанию\nУстановите google crome.")
             exit()
-        raise Exception(e)
+        except Exception as e:
+            print("Произошла ошибка\n\n" , e.args[0])
+            exit()
+
+        html = driver.page_source
+        driver.close()
+        driver.quit()
+        return html
+
+class ParserAkniga:
+    soup = None
+    def __init__(self, html_code ):
+        self.soup = BeautifulSoup(html_code, "lxml")
+
+    def get_root_link(self) -> str:
+        audio_blocks = self.soup.findAll('audio')
+        for i in range(len(audio_blocks)):
+            try:
+                print( f"Основа ссылок для скачивания {audio_blocks[i]['src']}")
+                return audio_blocks[i]['src']
+            except KeyError:
+                pass
+    def get_title(self) -> str:
+        return self.soup.find('h1', class_= 'caption__article-main').text
+    def get_list(self) -> list:
+        # Получает имена всех аудиокомпозиций и их отступы
+        bookList = []
+
+        item = self.soup.findAll(class_="chapter__default")
+        name = self.soup.findAll(class_="chapter__default--title")
+        item.pop(0)
+        name.pop(0)
+
+        for i in range(len(item)):
+            bookList.append(
+                {
+                'name': name[i].text,
+                'offset': item[i]['data-pos']
+                }
+            )
+
+        # [ {'name' : "Name 1" , 'offset' : "0" } ... ]
+        return bookList
 
 
 
-def getSRC(html):
-    # Парсит html контент в поисках ссылки на audio
-    # Вход html
-    # Выход ссылка на аудиофаил
-    soup = BeautifulSoup(html, "lxml")
-    el = soup.findAll('audio')
-    for i in range(len(el)):
-        try:
-            print('LINK = ' + el[i]['src'])
-            return el[i]['src']
-        except KeyError:
-            pass
 
-def getTitle(html):
-    soup = BeautifulSoup(html, "lxml")
-    return soup.find('h1', class_= 'caption__article-main').text
-
-def getList(html):
-    # Получает имена всех аудиокомпозиций и их отступы
-    # Вход html
-    # Выход списоок имя аудиофайла и его отступ
-    bookList = []
-    soup = BeautifulSoup(html, "lxml")
-    item = soup.findAll(class_="chapter__default")
-    name = soup.findAll(class_="chapter__default--title")
-    item.pop(0)
-    name.pop(0)
-    for i in range(len(item)):
-        # print(item[i]['data-pos'])
-        # print( name[i].text )
-        bookList.append({
-            'name': name[i].text,
-            'offset': item[i]['data-pos']
-        })
-    return bookList
-
-
-def numToStr(num: int):
-    # Утилита для преобразования числа в строку номер , например число 1 или 2 будет преобразованно в '01' или '02' соответственно
-    string = ''
-    if len(str(num)) == 1:
-        string = string + '0' + str(num)
-    else:
-        string = str(num)
-    return string
 
 
 def test_url(url):
@@ -180,6 +199,14 @@ def test_url(url):
     except Exception:
         return 407
 
+def numToStr(num: int):
+    # Утилита для преобразования числа в строку номер , например число 1 или 2 будет преобразованно в '01' или '02' соответственно
+    string = ''
+    if len(str(num)) == 1:
+        string = string + '0' + str(num)
+    else:
+        string = str(num)
+    return string
 
 def cheker(base_url):
     valid_links = []
@@ -440,5 +467,5 @@ def main():
 if __name__ == '__main__':
     CONFIG = ConfigManager.get_configs()
     # main()
-    checking_dependencies()
+    download_chrome_driver()
 
