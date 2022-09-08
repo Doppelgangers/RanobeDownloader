@@ -116,7 +116,7 @@ def get_akniga(self, url: str):
 
         except selenium_exceptions.WebDriverException as e:
             if (error := e.args[0]) == 'unknown error: cannot find Chrome binary':
-                print("Google Chrome не найдён в пути по умолчанию\nУстановите google crome.")
+                print("Google Chrome не найдён в пути по умолчанию\nУстановите google chrome.")
                 exit()
 
         except Exception as e:
@@ -125,7 +125,7 @@ def get_akniga(self, url: str):
 
         try:
             driver.get(url)
-            WebDriverWait(driver, 10).until(    EC.presence_of_element_located((By.CSS_SELECTOR, 'audio[src]'))   )
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'audio[src]')))
         except selenium_exceptions.TimeoutException:
             print(f"""
 ===================================================
@@ -141,7 +141,7 @@ def get_akniga(self, url: str):
         """)
             exit()
         except Exception as e:
-            print("Произошла ошибка\n\n" , e.args[0])
+            print("Произошла ошибка\n\n", e.args[0])
             exit()
 
         html = driver.page_source
@@ -185,19 +185,65 @@ class ParserAkniga:
         return bookList
 
 
+class DownloaderAudio:
+    base_url = ''
+    def __init__(self, base_url):
+        self.base_url = base_url
+
+    def multiprocessing_download_all(self, ):
+        links = self.cheker()
+        with Pool(processes=os.cpu_count()) as pool:
+            pool.map(self.download_one, links)
+        return len(links)
+    def download_one(self, data):
+        url, file_name = data
+        try:
+            file = requests.get(url, stream=True, timeout=3, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
+        except requests.exceptions.Timeout:
+            print("Error enter , reconect")
+            self.download_one(data)
+        print('Download', url)
+        ch = 0
+        with open(str(file_name) + '.mp3', 'wb') as f:
+            for chank in file.iter_content(chunk_size=1024 * 1024):
+                if chank:
+                    ch = ch + 1
+                    # print(ch)
+                    f.write(chank)
+
+        print("Downloaded: " + str(file_name) + '.mp3')
+    def cheker(self):
+        valid_links = []
+        num = 1
+        while True:
+            url = self.base_url.replace(',,/01', ',,/' + numToStr(num))
+            code = self.test_url(url)
+
+            match code:
+                case 200:
+                    print("Link is valide : ", num)
+                    valid_links.append([url, num])
+                    num += 1
+                case 404:
+                    return valid_links
+                case 407:
+                    print('Reconnecting (407) . . .')
+                case _:
+                    print(code)
+
+    def test_url(self , url):
+        # Функция проверяет работоспособность url и возвращает статус страницы
+        try:
+            data = requests.get(url, stream=True, timeout=2, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
+            status_code = data.status_code
+            return status_code
+        except Exception:
+            return 407
 
 
 
-
-def test_url(url):
-    # Функция проверяет работоспособность url и возвращает статус страницы
-    try:
-        data = requests.get(url, stream=True, timeout=2, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
-        status_code = data.status_code
-        return status_code
-    except Exception:
-        return 407
 
 def numToStr(num: int):
     # Утилита для преобразования числа в строку номер , например число 1 или 2 будет преобразованно в '01' или '02' соответственно
@@ -208,57 +254,6 @@ def numToStr(num: int):
         string = str(num)
     return string
 
-def cheker(base_url):
-    valid_links = []
-    num = 1
-    while True:
-        url = base_url.replace(',,/01', ',,/' + numToStr(num))
-        code = test_url(url)
-
-        match code:
-            case 200:
-                print("Link is valide : ", num)
-                valid_links.append([url, num])
-                num += 1
-            case 404:
-                return valid_links
-            case 407:
-                print('Reconnecting (407) . . .')
-
-            case _:
-                print(code)
-
-
-def download_one(data):
-    url, file_name = data
-
-    try:
-        file = requests.get(url, stream=True, timeout=3, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
-    except requests.exceptions.Timeout:
-        print("Error enter , reconect")
-        download_one(data)
-
-    print('Download', url)
-
-    ch = 0
-    with open(str(file_name) + '.mp3', 'wb') as f:
-        for chank in file.iter_content(chunk_size=1024 * 1024):
-            if chank:
-                ch = ch + 1
-                # print(ch)
-                f.write(chank)
-
-    print("Downloaded: " + str(file_name) + '.mp3')
-
-
-
-def multiprocessing_download_all(url_first_download_link):
-    links = cheker(url_first_download_link)
-    with Pool(processes=os.cpu_count()) as pool:
-        pool.map(download_one, links)
-
-    return len(links)
 
 
 def getDuration(file_name = '1.mp3'):
@@ -428,44 +423,41 @@ def settings_menu():
 
 
 def main():
-    global CONFIG
-    checking_dependencies()
-    print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
-    print('Что бы открыть настройки введите: settings\n')
-
-    url = input('Введите URL на аудиокнигу сайта akniga.org: ')
-
-    if url.strip() == "settings":
-        settings_menu()
-        main()
-
-    dirSave = input('Введите название папки в которую будет сохранено всё: ')
-
-    html = getHTML(url=url)
-
-    downloadURL = getSRC(html)
-    title = getTitle(html)
-
-    if dirSave == "0":
-        dirSave = title
-
-    numbers_files = multiprocessing_download_all(downloadURL)
-
-
-    print('Downlowded : ' + str(numbers_files) + ' files')
-
-    listFiles = getList(html)
-    os.path.join(CONFIG['MP3SPLT_PATH'], 'mp3splt')
-    commands = cerate_command_split(array=listFiles, folder_name=dirSave, number_downloaded_file=numbers_files, path_mp3split=CONFIG['MP3SPLT_PATH'])
-
-    splitCMD(command_list=commands)
-
-    print(pyfiglet.figlet_format("E N D", font='doom'))
+    # global CONFIG
+    # checking_dependencies()
+    # print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
+    # print('Что бы открыть настройки введите: settings\n')
+    #
+    # url = input('Введите URL на аудиокнигу сайта akniga.org: ')
+    #
+    # if url.strip() == "settings":
+    #     settings_menu()
+    #     main()
+    #
+    # dirSave = input('Введите название папки в которую будет сохранено всё: ')
+    #
+    # html = getHTML(url=url)
+    #
+    # downloadURL = getSRC(html)
+    # title = getTitle(html)
+    #
+    # if dirSave == "0":
+    #     dirSave = title
+    #
+    # numbers_files = multiprocessing_download_all(downloadURL)
+    #
+    #
+    # print('Downlowded : ' + str(numbers_files) + ' files')
+    #
+    # listFiles = getList(html)
+    # os.path.join(CONFIG['MP3SPLT_PATH'], 'mp3splt')
+    # commands = cerate_command_split(array=listFiles, folder_name=dirSave, number_downloaded_file=numbers_files, path_mp3split=CONFIG['MP3SPLT_PATH'])
+    #
+    # splitCMD(command_list=commands)
+    #
+    # print(pyfiglet.figlet_format("E N D", font='doom'))
 
 
 
 if __name__ == '__main__':
-    CONFIG = ConfigManager.get_configs()
-    # main()
-    download_chrome_driver()
-
+    pass
