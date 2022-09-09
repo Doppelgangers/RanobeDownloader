@@ -3,9 +3,7 @@ import time
 import zipfile
 from multiprocessing import Pool
 
-
 from settings import ConfigManager
-
 
 import mutagen
 import pyfiglet
@@ -20,9 +18,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 
-class WebDriver_Manager:
+class WebDriverManager:
 
-    def download_chrome_driver(self):
+    @staticmethod
+    def download_chrome_driver():
 
         if os.path.exists(os.path.join(os.getcwd(), "chromedriver.exe")):
             os.remove('chromedriver.exe')
@@ -45,7 +44,7 @@ class WebDriver_Manager:
             """)
             vers_chrome = input("Ваша версия: ").strip()
 
-        if not "." in vers_chrome:
+        if "." not in vers_chrome:
             print(f"Версия {vers_chrome} указанна не корректно")
             return False
 
@@ -81,16 +80,15 @@ class WebDriver_Manager:
         return True
 
 
-
-
-
 class Browser:
     options = None
 
-    def __init__(self , executable_path_chromedriwer = 'chromedriver.exe' ):
+    def __init__(self):
         self.options = self.create_browser_options()
 
-    def create_browser_options(self, background_mode: bool = True , hide_images: bool = True, skip_wait_load_page: bool = True) -> webdriver.ChromeOptions:
+    @staticmethod
+    def create_browser_options(background_mode: bool = True, hide_images: bool = True,
+                               skip_wait_load_page: bool = True) -> webdriver.ChromeOptions:
         options = webdriver.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
         if hide_images:
@@ -105,22 +103,23 @@ class Browser:
             caps["pageLoadStrategy"] = "none"
         return options
 
-def get_akniga(self, url: str):
+    def get_akniga(self, url: str):
+        driver = ''
         try:
-            driver = webdriver.Chrome( options = self.options )
+            driver = webdriver.Chrome(options=self.options)
 
         except selenium_exceptions.SessionNotCreatedException as e:
-            if ('This version of ChromeDriver' in e.args[0]):
-                print(e.args[0] , "Обновите ChromeDriver в  настройках")
+            if 'This version of ChromeDriver' in e.args[0]:
+                print(e.args[0], "Обновите ChromeDriver в  настройках")
                 exit()
 
         except selenium_exceptions.WebDriverException as e:
             if (error := e.args[0]) == 'unknown error: cannot find Chrome binary':
-                print("Google Chrome не найдён в пути по умолчанию\nУстановите google chrome.")
+                print(f"{error}\nGoogle Chrome не найдён в пути по умолчанию\nУстановите google chrome.")
                 exit()
 
         except Exception as e:
-            print("Произошла ошибка\n\n" , e.args[0])
+            print("Произошла ошибка\n\n", e.args[0])
             exit()
 
         try:
@@ -149,24 +148,28 @@ def get_akniga(self, url: str):
         driver.quit()
         return html
 
+
 class ParserAkniga:
     soup = None
-    def __init__(self, html_code ):
+
+    def __init__(self, html_code):
         self.soup = BeautifulSoup(html_code, "lxml")
 
     def get_root_link(self) -> str:
         audio_blocks = self.soup.findAll('audio')
         for i in range(len(audio_blocks)):
             try:
-                print( f"Основа ссылок для скачивания {audio_blocks[i]['src']}")
+                print(f"Основа ссылок для скачивания {audio_blocks[i]['src']}")
                 return audio_blocks[i]['src']
             except KeyError:
                 pass
+
     def get_title(self) -> str:
-        return self.soup.find('h1', class_= 'caption__article-main').text
+        return self.soup.find('h1', class_='caption__article-main').text
+
     def get_list(self) -> list:
         # Получает имена всех аудиокомпозиций и их отступы
-        bookList = []
+        data = []
 
         item = self.soup.findAll(class_="chapter__default")
         name = self.soup.findAll(class_="chapter__default--title")
@@ -174,29 +177,43 @@ class ParserAkniga:
         name.pop(0)
 
         for i in range(len(item)):
-            bookList.append(
+            data.append(
                 {
-                'name': name[i].text,
-                'offset': item[i]['data-pos']
+                    "name": name[i].text,
+                    "offset": int(item[i]['data-pos'])
                 }
             )
 
         # [ {'name' : "Name 1" , 'offset' : "0" } ... ]
-        return bookList
+        # name:str , offset: int
+        return data
 
 
 class DownloaderAudio:
     base_url = ''
+
     def __init__(self, base_url):
         self.base_url = base_url
 
-    def multiprocessing_download_all(self, ):
+    @staticmethod
+    def num_to_str(number: int):
+        # Преобразует число в строку c нулём , например число 1 или 2 будет преобразованно в '01' или '02' соответственно
+        string_number = ''
+        if len(str(number)) == 1:
+            string_number = string_number + '0' + str(number)
+        else:
+            string_number = str(number)
+        return string_number
+
+    def multiprocessing_download_all(self):
         links = self.cheker()
         with Pool(processes=os.cpu_count()) as pool:
             pool.map(self.download_one, links)
         return len(links)
+
     def download_one(self, data):
         url, file_name = data
+        file = ''
         try:
             file = requests.get(url, stream=True, timeout=3, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
@@ -213,11 +230,12 @@ class DownloaderAudio:
                     f.write(chank)
 
         print("Downloaded: " + str(file_name) + '.mp3')
+
     def cheker(self):
         valid_links = []
         num = 1
         while True:
-            url = self.base_url.replace(',,/01', ',,/' + numToStr(num))
+            url = self.base_url.replace(',,/01', ',,/' + self.num_to_str(num))
             code = self.test_url(url)
 
             match code:
@@ -232,7 +250,7 @@ class DownloaderAudio:
                 case _:
                     print(code)
 
-    def test_url(self , url):
+    def test_url(self, url):
         # Функция проверяет работоспособность url и возвращает статус страницы
         try:
             data = requests.get(url, stream=True, timeout=2, headers={
@@ -243,97 +261,106 @@ class DownloaderAudio:
             return 407
 
 
+class SplitManager:
+    path_mp3split = ''
+    root_folder = ''
 
+    def __init__(self, path_mp3splt, root_folder=''):
+        self.path_mp3split = path_mp3splt
 
-def numToStr(num: int):
-    # Утилита для преобразования числа в строку номер , например число 1 или 2 будет преобразованно в '01' или '02' соответственно
-    string = ''
-    if len(str(num)) == 1:
-        string = string + '0' + str(num)
-    else:
-        string = str(num)
-    return string
+        if root_folder:
+            self.root_folder = root_folder
+        else:
+            self.root_folder = os.getcwd()
 
+    @staticmethod
+    def get_duration(file_name: str = '1.mp3') -> int:
+        # Узнаёт длительность аудиокомпозиции по имении файла
+        f = MP3(file_name)
+        duration = round(f.info.length)
+        return duration
 
+    @staticmethod
+    def converter_time_mmss(sec) -> str:
+        # Преобразование секунд в время в минты+секунды 156сек = 2:36
+        time = ''
+        time = time + str(sec // 60) + '.' + str(sec % 60)
+        return time
 
-def getDuration(file_name = '1.mp3'):
-    # Узнаёт длительность аудиокомпозиции по имении файла
-    f = MP3(file_name)
-    secs = round(f.info.length)
-    return secs
-
-
-def converterTimeMMSS(sec):
-    # Преобразование секунд в время в минты+секунды 156сек = 2:36
-    time = ''
-    time = time + str(sec // 60) + '.' + str(sec % 60)
-    return time
-
-def splitCMD( command_list: list ):
-    # Создание и запуск утилиты на разрезку файлов
-    with open(r"command.bat", "w") as file:
-        # Включаем кодировку с поддержкой русского языка
-        file.write('chcp 1251 >nul \n')
-        # Переходим к месту расположению этого скрпипта
-        file.write('cd ' + os.path.dirname(os.path.abspath(__file__)) + ' \n')
-        # Записываем команды из массива
-        for i in range(int(len(command_list))):
-            # Записываем комманды для утилиты mp3splt
-            file.write(command_list[i] + ' \n')
-
-    # Переходим в текущюю деректорию
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    # Запускаем созданный скрипт
-    os.startfile("command.bat")
-
-
-def cerate_command_split(array: list, folder_name: str, number_downloaded_file: int , path_mp3split: str) -> list:
-    # Создацние списка команд для утилиты разделения
-    # Принимает array , список имён и отступов
-    # Результатом работы скрипта является список команд для mp3split
-    offsets = 0
-    this_file = 1
-    max_duratin = getDuration('1.mp3')
-
-    command_list = []
-    for i in range( len(array) ):
-
-        if ( int(array[i]['offset']) - offsets) >= max_duratin:
-            this_file += 1
-            offsets = int(array[i]['offset'])
-            try:
-                max_duratin = getDuration(str(this_file) + '.mp3')
-            except mutagen.MutagenError:
-                return
-
-        start = int(array[i]['offset']) - offsets
-
-        try:
-            end = int(array[i + 1]['offset']) - offsets
-        except IndexError:
-            end = max_duratin
-        time_start = converterTimeMMSS(start)
-        time_end = converterTimeMMSS(end)
-
-        #Указываем входной файл и временые отрезки
-        command = f"{os.path.join(path_mp3split , 'mp3splt')}  {str(this_file)}.mp3 {str(time_start)} {str(time_end)}"
+    def compose_command(self, input_filename: str, name, time_start: str, time_end: str, folder_name):
+        # Указываем входной файл и временые отрезки
+        command = f"""{os.path.join(self.path_mp3split, 'mp3splt')} {input_filename}.mp3 {time_start} {time_end}"""
 
         # Имя файла
-        command += f""" -o @t="{array[i]['name']}" """
+        command += f""" -o @t="{name}" """
 
         # Название композиции
-        command += f""" -g [@t="{array[i]['name']}"] """
+        command += f""" -g [@t="{name}"] """
 
-        root_folder = CONFIG['SAVE_TO']
-        command += f""" -d "{os.path.join( root_folder, folder_name)}" """
+        command += f""" -d "{os.path.join(self.root_folder, folder_name)}" """
 
-        command_list.append(command)
+        return command
 
-    for i in range( number_downloaded_file ):
-        num = i + 1
-        command_list.append(f'del {num}.mp3')
-    command_list.append('del command.bat')
-    return command_list
+    def create_commands(self, offsets_and_names: list, folder_name: str, number_downloaded_file: int) -> list:
+        # Создацние списка команд для утилиты разделения
+        # Результатом работы скрипта является список команд для mp3split
+
+        offset = 0
+        current_file = 1
+        max_duration = self.get_duration('1.mp3')
+        command_list = []
+
+        for i in range(len(offsets_and_names)):
+
+            if (offsets_and_names[i]['offset'] - offset) >= max_duration:
+                current_file += 1
+                offset = offsets_and_names[i]['offset']
+                try:
+                    max_duration = self.get_duration(str(current_file) + '.mp3')
+                except mutagen.MutagenError as e:
+                    raise Exception(e)
+
+            start = offsets_and_names[i]['offset'] - offset
+
+            try:
+                end = offsets_and_names[i + 1]['offset'] - offset
+            except IndexError:
+                end = max_duration
+
+            time_start = self.converterTimeMMSS(start)
+            time_end = self.converterTimeMMSS(end)
+
+            command = self.compose_command(input_filename=str(current_file),
+                                           name=offsets_and_names[i]['name'],
+                                           time_start=time_start,
+                                           time_end=time_end,
+                                           folder_name=folder_name
+                                           )
+
+            command_list.append(command)
+
+        for i in range(number_downloaded_file):
+            command_list.append(f'del {i + 1}.mp3')
+        command_list.append('del command.bat')
+
+        return command_list
+
+    def start_cmd(self, commands: list):
+        # Создание и запуск утилиты на разрезку файлов
+        with open(r"command.bat", "w") as file:
+            file.write('chcp 1251 >nul \n')
+            # Переходим к месту расположению этого скрпипта
+            file.write('cd ' + os.path.dirname(os.path.abspath(__file__)) + ' \n')
+            # Записываем команды из массива
+            for comand in commands:
+                # Записываем комманды для утилиты mp3splt
+                file.write(comand + '\n')
+
+        # Переходим в текущюю деректорию
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        # Запускаем созданный скрипт
+        os.startfile("command.bat")
+
 
 def checking_dependencies():
     # Проверка существования mp3splt====================================================================================
@@ -341,7 +368,7 @@ def checking_dependencies():
     if not os.path.exists(os.path.join(CONFIG["MP3SPLT_PATH"], 'mp3splt.exe')):
         while True:
             print(
-"""
+                """
 = = = E R R O R = = =
 Не найден путь к утилите mp3slpt, если утилита установлена укажите верный путь:
 1) Использовать mp3splt по умолчанию
@@ -355,74 +382,86 @@ def checking_dependencies():
                     print('Выбран mp3splt по умолчанию')
                     ConfigManager.edit_config("MP3SPLT_PATH", 'mp3splt')
                 case "2":
-                    ConfigManager.edit_config("MP3SPLT_PATH" , input("\n\n\nВведите путь к mp3slpt \nПример: D:\programs\mp3splt\n\nПуть: ") )
+                    ConfigManager.edit_config("MP3SPLT_PATH", input(
+                        "\n\n\nВведите путь к mp3slpt \nПример: D:\programs\mp3splt\n\nПуть: "))
                     CONFIG = ConfigManager.get_configs()
                 case "3":
                     exit()
                 case _:
                     print("Такого действия нет.")
 
-            if os.path.exists( os.path.join( CONFIG["MP3SPLT_PATH"] , 'mp3splt.exe' ) ):
+            if os.path.exists(os.path.join(CONFIG["MP3SPLT_PATH"], 'mp3splt.exe')):
                 break
-#=======================================================================================================================
+    # =======================================================================================================================
     if not os.path.exists(CONFIG["SAVE_TO"]):
         ConfigManager.edit_config("SAVE_TO", '')
 
-    if not os.path.exists( os.path.join( os.getcwd() , 'chromedriver.exe' ) ):
-        download_chrom_driver()
+    if not os.path.exists(os.path.join(os.getcwd(), 'chromedriver.exe')):
+        pass
+        # download_chrom_driver()
+
 
 class Validator:
     @classmethod
-    def mp3splt(cls, value):
-        if os.path.exists( os.path.join( value , 'mp3splt.exe' ) ):
+    def mp3splt(cls, folder_path):
+        if os.path.exists(os.path.join(folder_path, 'mp3splt.exe')):
             return True
         else:
-            print(f"По пути {value} не был обнаружен файл mp3.splt.exe")
+            print(f"По пути {folder_path} не был обнаружен файл mp3.splt.exe")
             return False
+
     @classmethod
-    def save_to(cls , value):
-        if os.path.exists( value ):
+    def save_to(cls, value):
+        if os.path.exists(value):
             return True
         else:
             print(f"По пути {value} папки не существует.")
             return False
-def edit_config(key , value , validator):
+
+
+def edit_config(key, value, validator):
     global CONFIG
 
     while True:
         if value == "stop":
             return
 
-        if validator(value) :
-            ConfigManager.edit_config(key , value)
+        if validator(value):
+            ConfigManager.edit_config(key, value)
             CONFIG = ConfigManager.get_configs()
             return
         value = input("\nВведите корректный путь или введите stop, что бы выйти\nВвод: ")
+
+
 def settings_menu():
     global CONFIG
-    print( '\n',pyfiglet.figlet_format("S e t t i n g s", font='doom') )
+    print('\n', pyfiglet.figlet_format("S e t t i n g s", font='doom'))
 
     while True:
         print(f"""
 ============================================= Н А С Т Р О Й К И ========================================================
-1) Изменить путь к mp3splt === { '[=EMPTY=]' if ( (path:=CONFIG['MP3SPLT_PATH']) == '') else path } 
-2) Изменить путь сохранения папкок с аудиокнигой === { '[=EMPTY=]' if ( (path:=CONFIG['SAVE_TO']) == '')  else  path } 
+1) Изменить путь к mp3splt === {'[=EMPTY=]' if ((path := CONFIG['MP3SPLT_PATH']) == '') else path} 
+2) Изменить путь сохранения папкок с аудиокнигой === {'[=EMPTY=]' if ((path := CONFIG['SAVE_TO']) == '') else path} 
 3) Вернуться
 ========================================================================================================================
 """)
         match input("Выберете действие: "):
             case '1':
-                edit_config( 'MP3SPLT_PATH' , input("\nВведите путь к mp3splt.exe\nПример: D:\programs\mp3splt\n(Для отмены введеите: stop)\n\nВвод:  "), Validator.mp3splt)
+                edit_config('MP3SPLT_PATH', input(
+                    "\nВведите путь к mp3splt.exe\nПример: D:\programs\mp3splt\n(Для отмены введеите: stop)\n\nВвод:  "),
+                            Validator.mp3splt)
             case '2':
-                edit_config( 'SAVE_TO' , '\nУкажите куда сохранять папки с аудиокнигами\nПример: C:/Users/root/Desktop\n(Для отмены введеите: stop)\n\nВвод: ', Validator.save_to)
+                edit_config('SAVE_TO',
+                            '\nУкажите куда сохранять папки с аудиокнигами\nПример: C:/Users/root/Desktop\n(Для отмены введеите: stop)\n\nВвод: ',
+                            Validator.save_to)
             case '3':
                 return
             case _:
                 print("Такой команды нет")
 
 
-
 def main():
+    pass
     # global CONFIG
     # checking_dependencies()
     # print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
@@ -456,7 +495,6 @@ def main():
     # splitCMD(command_list=commands)
     #
     # print(pyfiglet.figlet_format("E N D", font='doom'))
-
 
 
 if __name__ == '__main__':
