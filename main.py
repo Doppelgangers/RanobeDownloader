@@ -155,11 +155,20 @@ class ParserAkniga:
     def __init__(self, html_code):
         self.soup = BeautifulSoup(html_code, "lxml")
 
+    @staticmethod
+    def get_html_for_file(filename):
+        html_code = ""
+        with open(filename, 'r', encoding="utf-8") as f:
+            html_list = f.readlines()
+        for line in html_list:
+            html_code += line
+        return html_code
+
     def get_root_link(self) -> str:
         audio_blocks = self.soup.findAll('audio')
         for i in range(len(audio_blocks)):
             try:
-                print(f"Основа ссылок для скачивания {audio_blocks[i]['src']}")
+                # print(f"Основа ссылок для скачивания {audio_blocks[i]['src']}")
                 return audio_blocks[i]['src']
             except KeyError:
                 pass
@@ -167,7 +176,7 @@ class ParserAkniga:
     def get_title(self) -> str:
         return self.soup.find('h1', class_='caption__article-main').text
 
-    def get_list(self) -> list:
+    def get_audio_map(self) -> list:
         # Получает имена всех аудиокомпозиций и их отступы
         data = []
 
@@ -215,10 +224,9 @@ class DownloaderAudio:
         url, file_name = data
         file = ''
         try:
-            file = requests.get(url, stream=True, timeout=3, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
+            file = requests.get(url, stream=True, timeout=3, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
         except requests.exceptions.Timeout:
-            print("Error enter , reconect")
+            print("Error enter , reconnect")
             self.download_one(data)
         print('Download', url)
         ch = 0
@@ -276,8 +284,8 @@ class SplitManager:
     @staticmethod
     def get_duration(file_name: str = '1.mp3') -> int:
         # Узнаёт длительность аудиокомпозиции по имении файла
-        f = MP3(file_name)
-        duration = round(f.info.length)
+        audio = MP3(filename=file_name)
+        duration = round(audio.info.length)
         return duration
 
     @staticmethod
@@ -287,7 +295,7 @@ class SplitManager:
         time = time + str(sec // 60) + '.' + str(sec % 60)
         return time
 
-    def compose_command(self, input_filename: str, name, time_start: str, time_end: str, folder_name):
+    def compose_command(self, input_filename: str, name: str, time_start: str, time_end: str, folder_name):
         # Указываем входной файл и временые отрезки
         command = f"""{os.path.join(self.path_mp3split, 'mp3splt')} {input_filename}.mp3 {time_start} {time_end}"""
 
@@ -498,4 +506,6 @@ def main():
 
 
 if __name__ == '__main__':
-    pass
+    splitter = SplitManager('', 'D:/')
+    command = splitter.compose_command('1', 'shield-hero', '1.22', "2.44", 'akniga')
+    print(command)
