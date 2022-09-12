@@ -20,19 +20,22 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 class WebDriverManager:
 
-    @staticmethod
-    def download_chrome_driver():
-
+    @classmethod
+    def del_last_webdriver(cls):
         if os.path.exists(os.path.join(os.getcwd(), "chromedriver.exe")):
             os.remove('chromedriver.exe')
-            time.sleep(0.5)
+            time.sleep(0.3)
+        if os.path.exists(os.path.join(os.getcwd(), "chromedriver.exe")):
+            return False
+        else:
+            return True
 
-        chrome_info_file = os.path.expandvars(r"%localappdata%/Google/Chrome/User Data/Last Version")
+    @classmethod
+    def find_vers_your_google_chrome(cls):
 
-        if not os.path.exists(chrome_info_file):
+        if os.path.exists(chrome_info_file := os.path.expandvars(r"%localappdata%/Google/Chrome/User Data/Last Version")):
             with open(chrome_info_file, 'r') as f:
                 vers_chrome = f.readline()
-
         else:
             print("""
             Не удалось определить версию вашего браузера google chrome. 
@@ -43,52 +46,68 @@ class WebDriverManager:
 
             """)
             vers_chrome = input("Ваша версия: ").strip()
-
-        if "." not in vers_chrome:
-            print(f"Версия {vers_chrome} указанна не корректно")
-            return False
-
+            if "." not in vers_chrome:
+                print(f"Версия {vers_chrome} указанна не корректно")
+                return False
         vers_chrome = vers_chrome.split('.')[:-1]
         vers_chrome = '.'.join(vers_chrome)
+        return vers_chrome
 
-        vers = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{vers_chrome}')
-        if (errorcode := vers.status_code) == 404:
+    @classmethod
+    def get_version_webdriver(cls, version_google):
+        version_webdriver = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{version_google}')
+        if (error_code := version_webdriver.status_code) != 200:
             print(
-                f"Error: {errorcode}\nТакой версии браузера не найдено\nВведите версию корректно или скачайте webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")
-            return False
+                f"Error: {error_code}\nТакой версии браузера не найдено\nВведите версию корректно или скачайте webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")
+            return None
+        return version_webdriver.text
 
-        file = requests.get(f"https://chromedriver.storage.googleapis.com/{vers}/chromedriver_win32.zip", stream=True,
-                            timeout=3)
+    @classmethod
+    def download_webdriver(cls, version_webdriver):
+        file = requests.get(f"https://chromedriver.storage.googleapis.com/{version_webdriver}/chromedriver_win32.zip", stream=True,timeout=3)
 
-        if (errorcode := file.status_code) == 404:
+        if (error_code := file.status_code) != 200:
             print(
-                f"Error: {errorcode}\nВерсии chromedriver {vers_chrome} не найдено\nПопробуйте загрузить webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")
-            return False
+                f"Error: {error_code}\nВерсии chromedriver {version_webdriver} не найдено\nПопробуйте загрузить webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")
+            return None
 
         # ===Загрузка=архива=с=драйвером============================================================================
         with open('chromedriver.zip', "wb") as f:
             for chank in file.iter_content(chunk_size=1024 * 1024):
                 if chank:
                     f.write(chank)
-
         # ===Распаковка=архива=с=драйвером============================================================================
         with zipfile.ZipFile('chromedriver.zip', 'r') as zip_ref:
             zip_ref.extractall()
 
         os.remove('chromedriver.zip')
-        print(f"Downloaded chromedriver: v{vers}")
+        print(f"Downloaded chromedriver: v{version_webdriver}")
         return True
+
+    @classmethod
+    def download_chrome_driver(cls):
+        try:
+            cls.del_last_webdriver()
+            version_google = cls.find_vers_your_google_chrome()
+            version_webdriver = cls.get_version_webdriver(version_google)
+            cls.download_webdriver(version_webdriver)
+            return True
+        except Exception:
+            return False
+
+
+
 
 
 class Browser:
     options = None
 
     def __init__(self):
-        self.options = self.create_browser_options()
+        self.options = self.create_browser_options(background_mode=True, hide_images=True, skip_wait_load_page=True)
 
     @staticmethod
-    def create_browser_options(background_mode: bool = True, hide_images: bool = True,
-                               skip_wait_load_page: bool = True) -> webdriver.ChromeOptions:
+    def create_browser_options(background_mode: bool, hide_images: bool,
+                               skip_wait_load_page: bool) -> webdriver.ChromeOptions:
         options = webdriver.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
         if hide_images:
@@ -103,50 +122,34 @@ class Browser:
             caps["pageLoadStrategy"] = "none"
         return options
 
-    def get_akniga(self, url: str):
-        driver = ''
+    def set_options(self, options: webdriver.ChromeOptions):
+        self.options = options
+
+    def get_page_akniga(self, url: str):
         try:
             driver = webdriver.Chrome(options=self.options)
+            driver.get(url)
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'audio[src]')))
+            html = driver.page_source
+            driver.close()
+            driver.quit()
+            return html
 
         except selenium_exceptions.SessionNotCreatedException as e:
             if 'This version of ChromeDriver' in e.args[0]:
-                print(e.args[0], "Обновите ChromeDriver в  настройках")
-                exit()
+                raise Exception(f'{e.args[0]}, "Обновите ChromeDriver в  настройках"')
+
 
         except selenium_exceptions.WebDriverException as e:
             if (error := e.args[0]) == 'unknown error: cannot find Chrome binary':
-                print(f"{error}\nGoogle Chrome не найдён в пути по умолчанию\nУстановите google chrome.")
-                exit()
+                raise selenium_exceptions.WebDriverException(
+                    f"{error}\nGoogle Chrome не найдён в пути по умолчанию\nУстановите google chrome.")
 
-        except Exception as e:
-            print("Произошла ошибка\n\n", e.args[0])
-            exit()
-
-        try:
-            driver.get(url)
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'audio[src]')))
         except selenium_exceptions.TimeoutException:
-            print(f"""
-===================================================
+            raise TimeoutError(f"Не удалось получить доступ к сайту.")
 
-Не удалось получить доступ к сайту.
-
-Возможные причины ошибки:
-    • Нет подключения к интернуту/сайт не доступен
-    • Слишком частые запросы к сайту
-    • Неверный url
-
-===================================================
-        """)
-            exit()
         except Exception as e:
-            print("Произошла ошибка\n\n", e.args[0])
-            exit()
-
-        html = driver.page_source
-        driver.close()
-        driver.quit()
-        return html
+            raise Exception("Произошла ошибка\n\n", e.args[0])
 
 
 class ParserAkniga:
@@ -200,6 +203,7 @@ class ParserAkniga:
 
 class DownloaderAudio:
     base_url = ''
+    downloaded_mp3 = 0
 
     def __init__(self, base_url):
         self.base_url = base_url
@@ -218,13 +222,15 @@ class DownloaderAudio:
         links = self.cheker()
         with Pool(processes=os.cpu_count()) as pool:
             pool.map(self.download_one, links)
-        return len(links)
+        self.downloaded_mp3 = len(links)
+        return links
 
     def download_one(self, data):
         url, file_name = data
         file = ''
         try:
-            file = requests.get(url, stream=True, timeout=3, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
+            file = requests.get(url, stream=True, timeout=3, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
         except requests.exceptions.Timeout:
             print("Error enter , reconnect")
             self.download_one(data)
@@ -258,14 +264,15 @@ class DownloaderAudio:
                 case _:
                     print(code)
 
-    def test_url(self, url):
+    @staticmethod
+    def test_url(url):
         # Функция проверяет работоспособность url и возвращает статус страницы
         try:
             data = requests.get(url, stream=True, timeout=2, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
             status_code = data.status_code
             return status_code
-        except Exception:
+        except requests.exceptions.Timeout:
             return 407
 
 
@@ -289,11 +296,12 @@ class SplitManager:
         return duration
 
     @staticmethod
-    def converter_time_mmss(sec) -> str:
+    def converter_time_mmss(sec: int) -> str:
         # Преобразование секунд в время в минты+секунды 156сек = 2:36
-        time = ''
-        time = time + str(sec // 60) + '.' + str(sec % 60)
-        return time
+        if type(sec) == int:
+            return str(sec // 60) + '.' + str(sec % 60)
+        else:
+            raise TypeError(f"""converter_time_mmss accepts only the integer value""")
 
     def compose_command(self, input_filename: str, name: str, time_start: str, time_end: str, folder_name):
         # Указываем входной файл и временые отрезки
@@ -335,8 +343,8 @@ class SplitManager:
             except IndexError:
                 end = max_duration
 
-            time_start = self.converterTimeMMSS(start)
-            time_end = self.converterTimeMMSS(end)
+            time_start = self.converter_time_mmss(start)
+            time_end = self.converter_time_mmss(end)
 
             command = self.compose_command(input_filename=str(current_file),
                                            name=offsets_and_names[i]['name'],
@@ -370,10 +378,32 @@ class SplitManager:
         os.startfile("command.bat")
 
 
+class Checking_dependencies:
+
+    @classmethod
+    def test(cls):
+        config_manger = ConfigManager()
+        """ Проверка наличии  mp3splt.exe по пути конфигураци"""
+        if not cls.path_mp3splt(config_manger.configs["MP3SPLT_PATH"]):
+            raise FileNotFoundError
+        if not os.path.exists( config_manger.configs["SAVE_TO"] ):
+            raise FileNotFoundError
+        if not os.path.exists('chromedriwer.exe'):
+            if not WebDriverManager.download_chrome_driver():
+                raise Exception("Webdriwer was not installed")
+
+    @classmethod
+    def path_mp3splt(cls, folder_path: str) -> bool:
+        if os.path.exists(os.path.join(folder_path, 'mp3splt.exe')):
+            return True
+        else:
+            return False
+
+
 def checking_dependencies():
     # Проверка существования mp3splt====================================================================================
-    global CONFIG
-    if not os.path.exists(os.path.join(CONFIG["MP3SPLT_PATH"], 'mp3splt.exe')):
+
+    if not os.path.exists( 'mp3splt.exe'):
         while True:
             print(
                 """
@@ -409,103 +439,28 @@ def checking_dependencies():
         # download_chrom_driver()
 
 
-class Validator:
-    @classmethod
-    def mp3splt(cls, folder_path):
-        if os.path.exists(os.path.join(folder_path, 'mp3splt.exe')):
-            return True
-        else:
-            print(f"По пути {folder_path} не был обнаружен файл mp3.splt.exe")
-            return False
-
-    @classmethod
-    def save_to(cls, value):
-        if os.path.exists(value):
-            return True
-        else:
-            print(f"По пути {value} папки не существует.")
-            return False
-
-
-def edit_config(key, value, validator):
-    global CONFIG
-
-    while True:
-        if value == "stop":
-            return
-
-        if validator(value):
-            ConfigManager.edit_config(key, value)
-            CONFIG = ConfigManager.get_configs()
-            return
-        value = input("\nВведите корректный путь или введите stop, что бы выйти\nВвод: ")
-
-
-def settings_menu():
-    global CONFIG
-    print('\n', pyfiglet.figlet_format("S e t t i n g s", font='doom'))
-
-    while True:
-        print(f"""
-============================================= Н А С Т Р О Й К И ========================================================
-1) Изменить путь к mp3splt === {'[=EMPTY=]' if ((path := CONFIG['MP3SPLT_PATH']) == '') else path} 
-2) Изменить путь сохранения папкок с аудиокнигой === {'[=EMPTY=]' if ((path := CONFIG['SAVE_TO']) == '') else path} 
-3) Вернуться
-========================================================================================================================
-""")
-        match input("Выберете действие: "):
-            case '1':
-                edit_config('MP3SPLT_PATH', input(
-                    "\nВведите путь к mp3splt.exe\nПример: D:\programs\mp3splt\n(Для отмены введеите: stop)\n\nВвод:  "),
-                            Validator.mp3splt)
-            case '2':
-                edit_config('SAVE_TO',
-                            '\nУкажите куда сохранять папки с аудиокнигами\nПример: C:/Users/root/Desktop\n(Для отмены введеите: stop)\n\nВвод: ',
-                            Validator.save_to)
-            case '3':
-                return
-            case _:
-                print("Такой команды нет")
-
-
 def main():
-    pass
-    # global CONFIG
-    # checking_dependencies()
-    # print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
-    # print('Что бы открыть настройки введите: settings\n')
-    #
-    # url = input('Введите URL на аудиокнигу сайта akniga.org: ')
-    #
-    # if url.strip() == "settings":
-    #     settings_menu()
-    #     main()
-    #
-    # dirSave = input('Введите название папки в которую будет сохранено всё: ')
-    #
-    # html = getHTML(url=url)
-    #
-    # downloadURL = getSRC(html)
-    # title = getTitle(html)
-    #
-    # if dirSave == "0":
-    #     dirSave = title
-    #
-    # numbers_files = multiprocessing_download_all(downloadURL)
-    #
-    #
-    # print('Downlowded : ' + str(numbers_files) + ' files')
-    #
-    # listFiles = getList(html)
-    # os.path.join(CONFIG['MP3SPLT_PATH'], 'mp3splt')
-    # commands = cerate_command_split(array=listFiles, folder_name=dirSave, number_downloaded_file=numbers_files, path_mp3split=CONFIG['MP3SPLT_PATH'])
-    #
-    # splitCMD(command_list=commands)
-    #
-    # print(pyfiglet.figlet_format("E N D", font='doom'))
+    Checking_dependencies.test()
+    print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
+    url = input('Введите URL на аудиокнигу сайта akniga.org: ')
+
+    browser = Browser()
+    html_page = browser.get_page_akniga(url=url)
+    print(html_page)
+    scraber = ParserAkniga(html_code=html_page)
+    root_url = scraber.get_root_link()
+    title = scraber.get_title()
+    map_akniga = scraber.get_audio_map()
+
+    loader = DownloaderAudio(base_url=root_url)
+    loader.multiprocessing_download_all()
+
+    splitter = SplitManager('', r'C:\Users\root\Desktop')
+    commands = splitter.create_commands(map_akniga, title, loader.downloaded_mp3)
+    splitter.start_cmd(commands)
+
+    print(pyfiglet.figlet_format("E N D", font='doom'))
 
 
 if __name__ == '__main__':
-    splitter = SplitManager('', 'D:/')
-    command = splitter.compose_command('1', 'shield-hero', '1.22', "2.44", 'akniga')
-    print(command)
+    main()
