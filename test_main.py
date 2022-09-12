@@ -52,4 +52,3 @@ class TestSplitManager(unittest.TestCase):
         self.assertEqual(command, """mp3splt 1.mp3 1.22 2.44 -o @t="shield-hero"  -g [@t="shield-hero"]  -d "D:/akniga" """)
 
 
-class TestWebDriverManager(unittest.TestCase):

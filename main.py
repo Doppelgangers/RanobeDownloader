@@ -106,8 +106,7 @@ class Browser:
         self.options = self.create_browser_options(background_mode=True, hide_images=True, skip_wait_load_page=True)
 
     @staticmethod
-    def create_browser_options(background_mode: bool, hide_images: bool,
-                               skip_wait_load_page: bool) -> webdriver.ChromeOptions:
+    def create_browser_options(background_mode: bool, hide_images: bool, skip_wait_load_page: bool) -> webdriver.ChromeOptions:
         options = webdriver.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
         if hide_images:
@@ -441,23 +440,34 @@ def checking_dependencies():
 
 def main():
     Checking_dependencies.test()
+    conf_mng = ConfigManager()
+
     print(pyfiglet.figlet_format(" R A N O B E  ", font='doom'))
     url = input('Введите URL на аудиокнигу сайта akniga.org: ')
 
     browser = Browser()
     html_page = browser.get_page_akniga(url=url)
-    print(html_page)
+
+    print('Сайт получен')
+
     scraber = ParserAkniga(html_code=html_page)
     root_url = scraber.get_root_link()
     title = scraber.get_title()
     map_akniga = scraber.get_audio_map()
 
+    print(root_url , title)
+    print(map_akniga)
+
     loader = DownloaderAudio(base_url=root_url)
     loader.multiprocessing_download_all()
 
-    splitter = SplitManager('', r'C:\Users\root\Desktop')
+    print("Скаченно")
+
+    splitter = SplitManager(conf_mng.configs["MP3SPLT_PATH"], conf_mng.configs["SAVE_TO"])
+
     commands = splitter.create_commands(map_akniga, title, loader.downloaded_mp3)
     splitter.start_cmd(commands)
+
 
     print(pyfiglet.figlet_format("E N D", font='doom'))
 
