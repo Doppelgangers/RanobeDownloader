@@ -21,7 +21,7 @@ class ConfigManager:
             self.edit_config("MP3SPLT_PATH", 'mp3splt')
 
         if self.configs.get("SAVE_TO") is None:
-            self.edit_config("SAVE_TO", os.path.dirname(os.path.abspath(__file__)))
+            self.edit_config("SAVE_TO", "\\".join(__file__.split("\\")[:-2]) )
 
     def __str__(self):
         self.configs = self.get_configs()
@@ -40,15 +40,11 @@ class ConfigManager:
     def edit_config(self, name: str, value: str):
 
         self.configs[name] = value
-        with open(self.name_config_file, "w") as file:
+        with open(self.name_config_file, "w", encoding="utf-8") as file:
             json.dump(self.configs, file)
         return self.get_configs()
 
 
 if __name__ == "__main__":
-    version_webdriver = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_105.0.5195')
-    if (error_code := version_webdriver.status_code) != 200:
-        print(
-            f"Error: {error_code}\nТакой версии браузера не найдено\nВведите версию корректно или скачайте webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")
-    print(version_webdriver.text)
+    pass
 
