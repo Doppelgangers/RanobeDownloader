@@ -42,7 +42,7 @@ class WebDriverManager:
 
     @classmethod
     def get_version_webdriver(cls, version_google):
-        version_webdriver = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{version_google}')
+        version_webdriver = requests.get(f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{version_google}', stream=True, timeout=3)
         if (error_code := version_webdriver.status_code) != 200:
             print(
                 f"Error: {error_code}\nТакой версии браузера не найдено\nВведите версию корректно или скачайте webdriver под ваш GoogleChrome самостоятельно(поместить в {os.getcwd()} ).")

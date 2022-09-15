@@ -1,7 +1,4 @@
 import json
-import os
-
-import requests
 
 
 class ConfigManager:
@@ -21,7 +18,10 @@ class ConfigManager:
             self.edit_config("MP3SPLT_PATH", 'mp3splt')
 
         if self.configs.get("SAVE_TO") is None:
-            self.edit_config("SAVE_TO", "\\".join(__file__.split("\\")[:-2]) )
+            self.edit_config("SAVE_TO", "\\".join(__file__.split("\\")[:-2]))
+
+        if self.configs.get("TEMP") is None:
+            self.edit_config("TEMP", "\\".join(__file__.split("\\")[:-2]))
 
     def __str__(self):
         self.configs = self.get_configs()
