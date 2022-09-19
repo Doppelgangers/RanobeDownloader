@@ -23,7 +23,7 @@ class ParserAkniga:
                 pass
 
     def get_title(self) -> str:
-        return self.soup.find('h1', class_='caption__article-main').text
+        return self.soup.find('h1', class_='caption__article-main').text.strip()
 
     def get_audio_map(self) -> list:
         """Получает список словарей с названием главы и отступами """
@@ -46,4 +46,10 @@ class ParserAkniga:
         return data
 
     def get_contributing_artist(self):
-        return self.soup.find(class_="link__reader").text
+        return data.text.strip() if (data := self.soup.find(class_="link__reader")) else ""
+
+    def get_series(self):
+        return data.text.strip() if (data := self.soup.find(class_="link__series")) else ""
+
+    def get_author(self):
+        return data.text.strip() if (data := self.soup.find(class_="link__author")) else ""

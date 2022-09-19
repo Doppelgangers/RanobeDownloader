@@ -37,6 +37,10 @@ def main():
 
     print(pyfiglet.figlet_format("E N D", font='doom'))
 
-
+from  handlers.parsers import ParserAkniga
 if __name__ == '__main__':
-    main()
+    # main()
+    htmlpage = ParserAkniga.get_html_for_file(r"test\test_file\test_akniga.html")
+    pars = ParserAkniga(htmlpage)
+
+    print(pars.get_author())

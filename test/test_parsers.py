@@ -51,3 +51,15 @@ class TestParserAkniga(unittest.TestCase):
                      {'name': '28 Герой Щита v21 - Глава 13', 'offset': 20978},
                      {'name': '29 Герой Щита v21 - Эпилог', 'offset': 21858}]
         self.assertEqual(html_page.get_audio_map(), true_list)
+
+    def test_get_contributing_artist(self):
+        html_page = ParserAkniga(ParserAkniga.get_html_for_file(PATH_TEST_HTML))
+        self.assertEqual(html_page.get_contributing_artist(), r"Adrenalin28")
+
+    def test_get_series(self):
+        html_page = ParserAkniga(ParserAkniga.get_html_for_file(PATH_TEST_HTML))
+        self.assertEqual(html_page.get_series(), r"Становление Героя Щита  (21)")
+
+    def test_get_author(self):
+        html_page = ParserAkniga(ParserAkniga.get_html_for_file(PATH_TEST_HTML))
+        self.assertEqual(html_page.get_author(), r"Анеко Юсаги")
