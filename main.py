@@ -1,7 +1,3 @@
-import os
-import sys
-import time
-
 from handlers import Browser, ParserAkniga, ConfigManager, Checking_dependencies
 from handlers import DownloaderAudio    #TODO: Обработать 407 при скачивании
 from handlers import SplitManager   #TODO: Добавить args and kwargs
@@ -37,7 +33,7 @@ def main():
     splitter = SplitManager(conf_mng.configs["MP3SPLT_PATH"], conf_mng.configs["SAVE_TO"])
 
     commands = splitter.create_commands(map_akniga, title, loader.downloaded_mp3)
-    splitter.create_cmd(commands,False)
+    splitter.create_cmd(commands, False)
 
     print(pyfiglet.figlet_format("E N D", font='doom'))
 

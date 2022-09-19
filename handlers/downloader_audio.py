@@ -2,10 +2,13 @@ import os
 import requests
 from multiprocessing import Pool
 
+from handlers.config_manager import ConfigManager
+
 
 class DownloaderAudio:
     base_url = ''
     downloaded_mp3 = 0
+    conf_mng = ConfigManager()
 
     def __init__(self, base_url):
         self.base_url = base_url
@@ -38,7 +41,7 @@ class DownloaderAudio:
             self.download_one(data)
         print('Download', url)
         ch = 0
-        with open(str(file_name) + '.mp3', 'wb') as f:
+        with open(os.path.join(self.conf_mng.configs["TEMP"], str(file_name) + '.mp3'), 'wb') as f:
             for chank in file.iter_content(chunk_size=1024 * 1024):
                 if chank:
                     ch = ch + 1

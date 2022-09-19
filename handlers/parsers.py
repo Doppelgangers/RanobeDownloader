@@ -44,3 +44,6 @@ class ParserAkniga:
             )
 
         return data
+
+    def get_contributing_artist(self):
+        return self.soup.find(class_="link__reader").text

@@ -1,4 +1,5 @@
 import json
+import os.path
 
 
 class ConfigManager:
@@ -15,13 +16,13 @@ class ConfigManager:
         self.configs = self.get_configs()
 
         if self.configs.get("MP3SPLT_PATH") is None:
-            self.edit_config("MP3SPLT_PATH", 'mp3splt')
+            self.edit_config("MP3SPLT_PATH", os.path.join(os.getcwd(), 'mp3splt'))
 
         if self.configs.get("SAVE_TO") is None:
-            self.edit_config("SAVE_TO", "\\".join(__file__.split("\\")[:-2]))
+            self.edit_config("SAVE_TO", os.getcwd())
 
         if self.configs.get("TEMP") is None:
-            self.edit_config("TEMP", "\\".join(__file__.split("\\")[:-2]))
+            self.edit_config("TEMP",  os.path.join(os.getcwd(), "TEMP"))
 
     def __str__(self):
         self.configs = self.get_configs()
@@ -43,8 +44,3 @@ class ConfigManager:
         with open(self.name_config_file, "w", encoding="utf-8") as file:
             json.dump(self.configs, file)
         return self.get_configs()
-
-
-if __name__ == "__main__":
-    pass
-

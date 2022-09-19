@@ -45,15 +45,15 @@ class Browser:
             return html_code
 
         except selenium_exceptions.SessionNotCreatedException as e:
-            if 'This version of ChromeDriver' in e.args[0]:
-                raise Exception(f'{e.args[0]}, "Обновите ChromeDriver в  настройках"')
+            if 'This version of ChromeDriver' in (error := e.args[0]):
+                raise Exception(f'{error}, "Обновите ChromeDriver"')
 
         except selenium_exceptions.WebDriverException as e:
             if (error := e.args[0]) == 'unknown error: cannot find Chrome binary':
                 raise selenium_exceptions.WebDriverException(f"{error}\nGoogle Chrome не найдён в пути по умолчанию\nУстановите google chrome.")
 
         except selenium_exceptions.TimeoutException:
-            raise TimeoutError(f"Не удалось получить доступ к сайту.")
+            raise selenium_exceptions.TimeoutException(f"Не удалось получить доступ к сайту.")
 
         except Exception as e:
             raise Exception("Произошла ошибка\n\n", e.args[0])
