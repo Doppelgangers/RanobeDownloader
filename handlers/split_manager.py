@@ -30,31 +30,12 @@ class SplitManager:
         else:
             raise TypeError(f"""converter_time_mmss accepts only the integer value""")
 
-    def compose_command(self, input_filename: str, name: str, time_start: str, time_end: str, folder_name) -> str:
-        """ Создаёт команду для mp3splt """
-
-        # Указываем входной файл и временые отрезки
-        command = f"""{os.path.join(self.path_mp3split, 'mp3splt')} {input_filename}.mp3 {time_start} {time_end}"""
-
-        # Имя файла
-        # command += f""" -o @t="{name}" """
-        command += f""" -o "{name}" """
-
-        # Название композиции
-        command += f""" -g [@t="{name}"] """
-
-        # Путь сохранения файла
-        command += f""" -d "{os.path.join(self.path_save_to, folder_name)}" """
-
-        return command
-
-    def create_commands(self, offsets_and_names: list, folder_name: str, number_downloaded_file: int) -> list:
+    def create_commands(self, offsets_and_names: list, folder_name: str, number_downloaded_file: int, **kwargs) -> list:
         """ Создацние списка команд для утилиты разделения """
         offset = 0
         current_file = 1
-        max_duration = self.get_duration( os.path.join(self.path_temp, '1.mp3'))
-        command_list = []
-
+        max_duration = self.get_duration(os.path.join(self.path_temp, '1.mp3'))
+        mp3spliter = Mp3splt(os.path.join(self.path_mp3split, 'mp3splt'), os.path.join(self.path_save_to, folder_name))
         for i in range(len(offsets_and_names)):
 
             if (offsets_and_names[i]['offset'] - offset) >= max_duration:
@@ -75,20 +56,21 @@ class SplitManager:
             time_start = self.converter_time_mmss(start)
             time_end = self.converter_time_mmss(end)
 
-            command = self.compose_command(input_filename=str(current_file),
-                                           name=offsets_and_names[i]['name'],
-                                           time_start=time_start,
-                                           time_end=time_end,
-                                           folder_name=folder_name
-                                           )
+            mp3spliter.add(
+                output_file=f"{str(current_file)}.mp3",
+                name=offsets_and_names[i]['name'],
+                time_start=time_start,
+                time_end=time_end,
 
-            command_list.append(command)
+                number=i+1,
+                author=kwargs["author"],
+            )
 
         for i in range(number_downloaded_file):
-            command_list.append(f'del {i + 1}.mp3')
-        command_list.append('del command.bat')
+            mp3spliter.commands_list.append(f'del {i + 1}.mp3')
+        mp3spliter.commands_list.append('del command.bat')
 
-        return command_list
+        return mp3spliter.commands_list
 
     def run_cmd(self):
         """ Запускает созданный cmd """
@@ -110,5 +92,69 @@ class SplitManager:
             self.run_cmd()
 
 
-if __name__ == "__main__":
-    pass
+class Mp3splt:
+
+    def __init__(self, path_mp3splt: str, path_save_to: str = ''):
+        self.path_mp3splt = path_mp3splt
+        self.path_save_to = path_save_to
+        self.commands_list = []
+
+    def add(self, **kwargs):
+        """ NECESSARY:
+                -output_file: str
+                -name: str
+                -time_start: str
+                -time_end: str
+            NO NECESSARY:
+                -number: int
+                -author: str
+        """
+        self.commands_list.append(self.compose_command(**kwargs))
+
+    @staticmethod
+    def init_argument(kwargs: dict, name: str, valid_type: type, necessary: bool = True):
+        if name in kwargs:
+
+            if type((value := kwargs[name])) is valid_type:
+                return value
+            else:
+                raise ValueError(f"kwargs {name} not {valid_type} ")
+
+        elif not necessary:
+            return
+
+        else:
+            raise AttributeError(f"Not found kwargs {name}")
+
+    def compose_command(self, **kwargs):
+        """ Создаёт команды для mp3splt """
+
+        command = f" {self.path_mp3splt} "
+
+        output_file = self.init_argument(kwargs, "output_file", str)
+        name = self.init_argument(kwargs, "name", str)
+        time_start = self.init_argument(kwargs, "time_start", str)
+        time_end = self.init_argument(kwargs, "time_end", str)
+
+        number = self.init_argument(kwargs, "number", int, necessary=False)
+        author = self.init_argument(kwargs, "author", str, necessary=False)
+
+        command += f""" {output_file} """
+        command += f""" {time_start} """
+        command += f""" {time_end} """
+        command += f""" -o "{name}" """
+
+        sub_command = " -g ["
+        sub_command += f"""@t="{name}","""
+
+        if author:
+            sub_command += f"""@a="{author}","""
+
+        if number:
+            sub_command += f"""@N={number},"""
+
+        sub_command += "] "
+        command += sub_command
+        command += f""" -d "{self.path_save_to}" """
+
+        return command

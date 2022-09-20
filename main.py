@@ -22,25 +22,24 @@ def main():
     root_url = scraber.get_root_link()
     title = scraber.get_title()
     map_akniga = scraber.get_audio_map()
+    author = scraber.get_author()
 
-    print("Y")
+    print(f"Ссылка для загрузки 1 файла: {root_url}")
+    print(f"Название: {title}")
+    print(f"Автор: {author}")
 
     loader = DownloaderAudio(base_url=root_url)
     loader.multiprocessing_download_all()
 
-    print("Скаченно")
+    print("Аудиофайлы загруженны")
 
-    splitter = SplitManager(conf_mng.configs["MP3SPLT_PATH"], conf_mng.configs["SAVE_TO"])
+    splitter = SplitManager(conf_mng.configs["MP3SPLT_PATH"], conf_mng.configs["SAVE_TO"], conf_mng.configs["TEMP"])
 
-    commands = splitter.create_commands(map_akniga, title, loader.downloaded_mp3)
-    splitter.create_cmd(commands, False)
+    commands = splitter.create_commands(offsets_and_names=map_akniga, folder_name=title, number_downloaded_file=loader.downloaded_mp3, author=author )
+    splitter.create_cmd(commands)
 
     print(pyfiglet.figlet_format("E N D", font='doom'))
 
-from  handlers.parsers import ParserAkniga
-if __name__ == '__main__':
-    # main()
-    htmlpage = ParserAkniga.get_html_for_file(r"test\test_file\test_akniga.html")
-    pars = ParserAkniga(htmlpage)
 
-    print(pars.get_author())
+if __name__ == '__main__':
+    main()
