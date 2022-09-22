@@ -3,10 +3,18 @@ import os
 import mutagen
 from mutagen.mp3 import MP3
 
+from handlers.config_manager import ConfigManager
+
 
 class SplitManager:
 
-    def __init__(self, path_mp3splt: str, path_save_to: str = '', path_temp: str = ''):
+    def __init__(self, path_mp3splt: str = "", path_save_to: str = '', path_temp: str = '', use_config_manager: bool = False):
+
+        if use_config_manager:
+            conf_mng = ConfigManager()
+            path_temp = conf_mng.configs["TEMP"]
+            path_save_to = conf_mng.configs["SAVE_TO"]
+            path_mp3splt = conf_mng.configs["MP3SPLT_PATH"]
 
         self.path_mp3split = path_mp3splt
 

@@ -2,6 +2,7 @@ import os
 
 from handlers.webdriver_manager import WebDriverManager
 from handlers.config_manager import ConfigManager
+from handlers.default_settings_manager import DefaultSettingsManager
 
 
 class Checking_dependencies:
@@ -9,10 +10,13 @@ class Checking_dependencies:
     @classmethod
     def test(cls):
         config_manger = ConfigManager()
+        DefaultSettingsManager.set_default_settings()
         """ Проверка наличии  mp3splt.exe по пути конфигураци"""
         if not cls.path_mp3splt(config_manger.configs["MP3SPLT_PATH"]):
             raise FileNotFoundError
         if not os.path.exists(config_manger.configs["SAVE_TO"]):
+            raise FileNotFoundError
+        if not os.path.exists(config_manger.configs["TEMP"]):
             raise FileNotFoundError
         if not os.path.exists('chromedriver.exe'):
             if not WebDriverManager.download_chrome_driver():
