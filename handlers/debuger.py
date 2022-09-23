@@ -1,8 +1,8 @@
 import os
 
-from handlers.webdriver_manager import WebDriverManager
-from handlers.config_manager import ConfigManager
-from handlers.default_settings_manager import DefaultSettingsManager
+from .webdriver_manager import WebDriverManager
+from .config_manager import ConfigManager
+from .default_settings_manager import DefaultSettingsManager
 
 
 class Checking_dependencies:

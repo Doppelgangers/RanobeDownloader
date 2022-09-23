@@ -5,7 +5,7 @@ import sys
 sys.path.insert(1, '..')
 from handlers.parsers import ParserAkniga
 
-PATH_TEST_HTML = os.path.join(f'{os.path.sep}'.join(__file__.split(os.path.sep)[:-1]), "test_file/test_akniga.html")
+PATH_TEST_HTML = os.path.join(f'{os.path.sep}'.join(__file__.split(os.path.sep)[:-1]), "test_file/akniga.html")
 
 
 class TestParserAkniga(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestParserAkniga(unittest.TestCase):
     def test_get_root_link(self):
         html_page = ParserAkniga(ParserAkniga.get_html_for_file(PATH_TEST_HTML))
         self.assertEqual(html_page.get_root_link(),
-                         r"https://m2.akniga.club/b/66331/WYCpcDymnxMSvu5NVIDyRg,,/01. Анеко Юсаги - Становление Героя Щита 21.mp3")
+                             r"https://m3.akniga.club/b/66331/JrhOsJpRzdyWuLCq5aYJ7Q,,/01. Анеко Юсаги - Становление Героя Щита 21.mp3")
 
     def test_get_title(self):
         html_page = ParserAkniga(ParserAkniga.get_html_for_file(PATH_TEST_HTML))

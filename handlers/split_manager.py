@@ -1,9 +1,10 @@
 import os
+from types import NoneType
 
 import mutagen
 from mutagen.mp3 import MP3
 
-from handlers.config_manager import ConfigManager
+from .config_manager import ConfigManager
 
 
 class SplitManager:
@@ -71,7 +72,7 @@ class SplitManager:
                 time_end=time_end,
 
                 number=i+1,
-                author=kwargs["author"],
+                author=kwargs.get('author'),
             )
 
         for i in range(number_downloaded_file):
@@ -121,12 +122,15 @@ class Mp3splt:
 
     @staticmethod
     def init_argument(kwargs: dict, name: str, valid_type: type, necessary: bool = True):
+
         if name in kwargs:
 
             if type((value := kwargs[name])) is valid_type:
                 return value
+            elif not necessary and type(kwargs[name]) is NoneType:
+                return
             else:
-                raise ValueError(f"kwargs {name} not {valid_type} ")
+                raise ValueError(f"kwargs {name} not {valid_type}")
 
         elif not necessary:
             return

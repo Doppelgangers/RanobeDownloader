@@ -2,7 +2,7 @@ import os
 import requests
 from multiprocessing import Pool
 
-from handlers.config_manager import ConfigManager
+from .config_manager import ConfigManager
 
 
 class DownloaderAudio:
