@@ -30,26 +30,39 @@ class DownloaderAudio:
         self.downloaded_mp3 = len(links)
         return links
 
+    def download_all(self):
+        links = self.cheker()
+
+        for link in links:
+            while True:
+                if self.download_one(data=link):
+                    break
+
+
+        self.downloaded_mp3 = len(links)
+        return links
+
     def download_one(self, data):
         url, file_name = data
-        file = ''
+
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'}
         try:
-            file = requests.get(url, stream=True, timeout=3, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36 OPR/87.0.4390.58'})
-        except requests.exceptions.Timeout:
-            print("Error enter , reconnect")
-            self.download_one(data)
-        print('Download', url)
-        ch = 0
-        with open(os.path.join(self.conf_mng.configs["TEMP"], str(file_name) + '.mp3'), 'wb') as f:
-            for chank in file.iter_content(chunk_size=1024 * 1024):
-                if chank:
-                    ch = ch + 1
-                    # print(ch)
-                    f.write(chank)
+            with requests.get(url, stream=True, timeout=3, headers=headers) as file:
 
-        print("Downloaded: " + str(file_name) + '.mp3')
+                print('Download', url)
+                ch = 0
+                with open(os.path.join(self.conf_mng.configs["TEMP"], str(file_name) + '.mp3'), 'wb') as f:
+                    for chank in file.iter_content(chunk_size=1024 * 1024):
+                        if chank:
+                            ch = ch + 1
+                            # print(ch)
+                            f.write(chank)
 
+                print("Downloaded: " + str(file_name) + '.mp3')
+                return True
+        except Exception as e:
+            print("[def download_one] The download was interrupted!", e)
+            return False
     def cheker(self):
         valid_links = []
         num = 1
