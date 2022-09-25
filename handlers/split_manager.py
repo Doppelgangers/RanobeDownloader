@@ -51,7 +51,7 @@ class SplitManager:
                 current_file += 1
                 offset = offsets_and_names[i]['offset']
                 try:
-                    max_duration = self.get_duration(str(current_file) + '.mp3')
+                    max_duration = self.get_duration(os.path.join(self.path_temp, str(current_file) + '.mp3'))
                 except mutagen.MutagenError as e:
                     raise mutagen.MutagenError(e)
 

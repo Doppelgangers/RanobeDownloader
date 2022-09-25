@@ -8,16 +8,14 @@ from handlers import Browser, ParserAkniga, Checking_dependencies, SplitManager,
 def main():
     Checking_dependencies.test()
 
-    print(
-        """
+    print(r"""
  ______    ___    _   _   _____  ______   _____   
  | ___ \  / _ \  | \ | | |  _  | | ___ \ |  ___|  
  | |_/ / / /_\ \ |  \| | | | | | | |_/ / | |__    
  |    /  |  _  | | . ` | | | | | | ___ \ |  __|   
  | |\ \  | | | | | |\  | \ \_/ / | |_/ / | |___   
  \_| \_| \_| |_/ \_| \_/  \___/  \____/  \____/  
-        """
-    )
+""")
 
     url = input('Введите URL на аудиокнигу сайта akniga.org: ')
 
@@ -47,14 +45,14 @@ def main():
     commands = splitter.create_commands(offsets_and_names=map_akniga, folder_name=title, number_downloaded_file=loader.downloaded_mp3, author=author)
     splitter.create_cmd(commands)
 
-    print("""
- _____   _   _  ______ 
-|  ___| | \ | | |  _  \
-| |__   |  \| | | | | |
-|  __|  | . ` | | | | |
-| |___  | |\  | | |/ / 
-\____/  \_| \_/ |___/  
-""")
+    print(r"""
+  _____   _   _  ______ 
+ |  ___| | \ | | |  _  \
+ | |__   |  \| | | | | |
+ |  __|  | . ` | | | | |
+ | |___  | |\  | | |/ / 
+ \____/  \_| \_/ |___/  
+ """)
 
 
 if __name__ == '__main__':

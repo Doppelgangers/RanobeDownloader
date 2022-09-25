@@ -37,8 +37,8 @@ class DownloaderAudio:
             while True:
                 if self.download_one(data=link):
                     break
-
-
+                else:
+                    print("Загрузка была прерванна. Повтор загрузки.")
         self.downloaded_mp3 = len(links)
         return links
 
