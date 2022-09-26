@@ -1,8 +1,77 @@
-import pyfiglet
+# import pyfiglet
+import os
 
-from multiprocessing import freeze_support
+# from multiprocessing import freeze_support
 
-from handlers import Browser, ParserAkniga, Checking_dependencies, SplitManager, DownloaderAudio
+from handlers import Browser, ParserAkniga, Checking_dependencies, SplitManager, DownloaderAudio, ConfigManager
+
+
+def edit_path(name_config: str):
+    conf = ConfigManager()
+    while True:
+        value = input("Для выхода введите 0.\nВведите новый путь: ")
+        if os.path.exists(value):
+            conf.edit_config(name_config, value)
+            print("Новый путь успешно установлен!")
+            return
+        elif value == "0":
+            return
+        else:
+            print("Путь указан неверно.")
+
+
+def settings():
+    conf = ConfigManager()
+    while True:
+        print(f"""
+        ============================== Выберете действие ========================>>
+            Выберете что хотите изменить:
+
+            1 - Востановить настройки по умолчанию.
+            2 - Изменить путь сохранения файлов. (Текущий путь: {conf.configs.get("SAVE_TO")})
+            3 - Системные настройки. 
+
+            0 - Закрыть настрокйи.
+        =========================================================================>>
+        """)
+
+        match input().strip():
+            case "0":
+                return
+            case "1":
+                if os.path.isfile("config.json"):
+                    os.remove("config.json")
+                if os.path.isfile("chromedriver.exe"):
+                    os.remove("chromedriver.exe")
+                if os.path.isfile("TEMP"):
+                    os.remove("TEMP")
+                print("Настройки по умолчанию были успешно установленны!")
+            case "2":
+                edit_path("SAVE_TO")
+            case "3":
+                while True:
+                    print(f"""
+                    ======================== Системные = настройки ==========================>>
+                        Выберете что хотите изменить:
+    
+                        1 - Путь к временным файлам: {conf.configs.get("TEMP")}
+                        2 - Путь к mp3slplt.exe: {conf.configs.get("MP3SPLT_PATH")}
+    
+                        0 - Назад.
+                    =========================================================================>>
+                    """)
+                    match input().strip():
+                        case "0":
+                            break
+                        case "1":
+                            edit_path("TEMP")
+                        case "2":
+                            edit_path("MP3SPLT_PATH")
+                        case _:
+                            print("Такого параметра нет, введите число.")
+
+            case _:
+                print("Такого параметра нет, введите число.")
 
 
 def main():
@@ -17,7 +86,16 @@ def main():
  \_| \_| \_| |_/ \_| \_/  \___/  \____/  \____/  
 """)
 
-    url = input('Введите URL на аудиокнигу сайта akniga.org: ')
+    print("""
+Что бы открыть настройки введите мессто URL команду "settings".
+    
+    """)
+
+    url = input('Введите URL на аудиокнигу сайта akniga.org: ').strip()
+
+    if url == "settings":
+        settings()
+        main()
 
     browser = Browser()
     html_page = browser.get_page_akniga(url=url)
@@ -30,10 +108,10 @@ def main():
     map_akniga = parser.get_audio_map()
     author = parser.get_author()
 
-    print("\n")
-    print(f"Название: {title}")
-    print(f"Автор: {author}")
-    print("\n")
+
+    print(f"\nНазвание: {title}")
+    print(f"Автор: {author}\n")
+
 
     loader = DownloaderAudio(base_url=root_url)
     loader.download_all()
