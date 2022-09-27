@@ -12,11 +12,11 @@ class Checking_dependencies:
         config_manger = ConfigManager()
         DefaultSettingsManager.set_default_settings()
         """ Проверка наличии  mp3splt.exe по пути конфигураци"""
-        if not cls.path_mp3splt(config_manger.configs["MP3SPLT_PATH"]):
+        if (not cls.path_mp3splt(config_manger.configs["MP3SPLT_PATH"])) and config_manger.configs["MP3SPLT_PATH"] != "local":
             raise FileNotFoundError
-        if not os.path.exists(config_manger.configs["SAVE_TO"]):
+        if not os.path.exists(config_manger.configs["SAVE_TO"]) and config_manger.configs["SAVE_TO"] != "local":
             raise FileNotFoundError
-        if not os.path.exists(config_manger.configs["TEMP"]):
+        if not os.path.exists(config_manger.configs["TEMP"]) and config_manger.configs["TEMP"] != "local":
             raise FileNotFoundError
         if not os.path.exists('chromedriver.exe'):
             if not WebDriverManager.download_chrome_driver():

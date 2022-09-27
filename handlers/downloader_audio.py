@@ -8,9 +8,10 @@ from .config_manager import ConfigManager
 class DownloaderAudio:
     base_url = ''
     downloaded_mp3 = 0
-    conf_mng = ConfigManager()
 
     def __init__(self, base_url):
+        conf_mng = ConfigManager()
+        self.path_temp = use_path if (use_path := conf_mng.configs.get("TEMP")) != "local" else os.path.join(os.getcwd(), "TEMP")
         self.base_url = base_url
 
     @staticmethod
@@ -51,7 +52,7 @@ class DownloaderAudio:
 
                 print('Download', url)
                 ch = 0
-                with open(os.path.join(self.conf_mng.configs["TEMP"], str(file_name) + '.mp3'), 'wb') as f:
+                with open(os.path.join(self.path_temp, str(file_name) + '.mp3'), 'wb') as f:
                     for chank in file.iter_content(chunk_size=1024 * 1024):
                         if chank:
                             ch = ch + 1

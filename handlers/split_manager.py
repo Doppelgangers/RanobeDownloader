@@ -13,9 +13,9 @@ class SplitManager:
 
         if use_config_manager:
             conf_mng = ConfigManager()
-            path_temp = conf_mng.configs["TEMP"]
-            path_save_to = conf_mng.configs["SAVE_TO"]
-            path_mp3splt = conf_mng.configs["MP3SPLT_PATH"]
+            path_temp = path if (path := conf_mng.configs["TEMP"]) != "local" else os.path.join(os.getcwd(), "TEMP")
+            path_save_to = path if (path := conf_mng.configs["SAVE_TO"]) != "local" else os.getcwd()
+            path_mp3splt = path if (path := conf_mng.configs["MP3SPLT_PATH"]) != "local" else os.path.join(os.getcwd(), "mp3splt")
 
         self.path_mp3split = path_mp3splt
 

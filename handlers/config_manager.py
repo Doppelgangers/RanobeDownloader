@@ -16,17 +16,13 @@ class ConfigManager:
         self.configs = self.get_configs()
 
         if self.configs.get("MP3SPLT_PATH") is None:
-            self.edit_config("MP3SPLT_PATH", os.path.join(os.getcwd(), 'mp3splt'))
+            self.edit_config("MP3SPLT_PATH", "local")
 
         if self.configs.get("SAVE_TO") is None:
-            self.edit_config("SAVE_TO", os.getcwd())
+            self.edit_config("SAVE_TO", "local")
 
         if self.configs.get("TEMP") is None:
-            self.edit_config("TEMP",  os.path.join(os.getcwd(), "TEMP"))
-
-    def __str__(self):
-        self.configs = self.get_configs()
-        return self.configs
+            self.edit_config("TEMP",  "local")
 
     def get_configs(self):
         try:
