@@ -83,8 +83,7 @@ class SplitManager:
 
     def run_cmd(self):
         """ Запускает созданный cmd """
-        os.chdir(self.path_temp)
-        os.startfile("command.bat")
+        os.startfile(os.path.join(self.path_temp, "command.bat"))
 
     def create_cmd(self, commands: list, run_after_creation: bool = True):
         """ Создание и консольной утилиты """
@@ -141,7 +140,7 @@ class Mp3splt:
     def compose_command(self, **kwargs):
         """ Создаёт команды для mp3splt """
 
-        command = f" {self.path_mp3splt} "
+        command = f""" "{self.path_mp3splt}" """
 
         output_file = self.init_argument(kwargs, "output_file", str)
         name = self.init_argument(kwargs, "name", str)

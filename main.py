@@ -1,5 +1,6 @@
 # import pyfiglet
 import os
+import time
 
 # from multiprocessing import freeze_support
 
@@ -43,8 +44,8 @@ def settings():
                     os.remove("config.json")
                 if os.path.isfile("chromedriver.exe"):
                     os.remove("chromedriver.exe")
-                if os.path.isfile("TEMP"):
-                    os.remove("TEMP")
+                if os.path.isdir("TEMP"):
+                    os.rmdir("TEMP")
                 print("Настройки по умолчанию были успешно установленны!")
             case "2":
                 edit_path("SAVE_TO")
@@ -87,18 +88,29 @@ def main():
 """)
 
     print("""
-Что бы открыть настройки введите мессто URL команду "settings".
-    
+Что бы открыть настройки введите вместо URL команду "settings".
+Для выхода введите команду "exit"
     """)
 
     url = input('Введите URL на аудиокнигу сайта akniga.org: ').strip()
 
-    if url == "settings":
+    if url.lower() == "settings":
         settings()
-        main()
+        return
+
+    if url.lower() == "exit":
+        return False
+
+    if "https://akniga.org/" not in url:
+        print("URL Должен начанаться с https://akniga.org/...")
+        return
 
     browser = Browser()
     html_page = browser.get_page_akniga(url=url)
+
+    if html_page is None:
+        print("Такой страницы не существует , проверьте URL")
+        return
 
     print('Сайт получен')
 
@@ -108,10 +120,8 @@ def main():
     map_akniga = parser.get_audio_map()
     author = parser.get_author()
 
-
     print(f"\nНазвание: {title}")
     print(f"Автор: {author}\n")
-
 
     loader = DownloaderAudio(base_url=root_url)
     loader.download_all()
@@ -121,6 +131,7 @@ def main():
     splitter = SplitManager(use_config_manager=True)
 
     commands = splitter.create_commands(offsets_and_names=map_akniga, folder_name=title, number_downloaded_file=loader.downloaded_mp3, author=author)
+
     splitter.create_cmd(commands)
 
     print(r"""
@@ -134,4 +145,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    Flag = True
+    while Flag:
+        Flag = True if main() is None else False
