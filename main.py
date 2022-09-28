@@ -147,4 +147,7 @@ def main():
 if __name__ == '__main__':
     Flag = True
     while Flag:
-        Flag = True if main() is None else False
+        try:
+            Flag = True if main() is None else False
+        except Exception as e:
+            print("Произошла ошибка! " , e)
