@@ -1,0 +1,9 @@
+venv
+.idea
+__pycache__
+chromedriver.exe
+*.json
+TEMP
+ignore
+
+
